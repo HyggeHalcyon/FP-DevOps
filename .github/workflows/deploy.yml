@@ -1,0 +1,64 @@
+name: deploy
+
+on:
+  push: 
+    branches: ["main", "development"]
+  pull_request:
+    branches: ["development"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+
+    steps:
+      - name: Install SSH client
+        run: sudo apt-get install -y openssh-client
+
+      - name: Add SSH host to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to remote server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            sudo apt-get update
+            sudo apt-get install -y git docker.io docker-compose
+
+            cd ~
+
+            # Clone or update FP-DevOps repo
+            if [ ! -d "FP-DevOps" ]; then
+              git clone https://github.com/${{ github.repository }}.git FP-DevOps
+            fi
+
+            cd FP-DevOps
+
+            BRANCH_NAME="${{ github.ref_name }}"
+
+            if [ "$BRANCH_NAME" = "main" ]; then
+              git checkout main
+              git pull origin main
+            else
+              git checkout development
+              git pull origin development
+            fi
+
+            cd app
+            sudo docker-compose down
+
+            sudo ENV=${{ secrets.ENV }} \
+            DB_HOST=${{ secrets.DB_HOST }} \
+            DB_USER=${{ secrets.DB_USER }} \
+            DB_PASS=${{ secrets.DB_PASS }} \
+            DB_NAME=${{ secrets.DB_NAME }} \
+            DB_PORT=${{ secrets.DB_PORT }} \
+            JWT_SECRET=${{ secrets.JWT_SECRET }} \
+            sudo docker-compose up -d --build

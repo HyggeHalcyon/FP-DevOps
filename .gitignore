@@ -1,5 +1,5 @@
 terraform.exe
-*tfvars*
+*tfvars*.json
 *tfstate*
 .terraform
 .terraform.lock.hcl

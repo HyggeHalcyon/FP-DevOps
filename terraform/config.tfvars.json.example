@@ -1,0 +1,8 @@
+{
+    "resource_group_location": "japaneast",
+    "resource_group_name_prefix": "pso",
+    "username_production": "SuperUser",
+    "password_production": "SuperSecurePassword",
+    "username_development": "SuperUserDev",
+    "password_development": "SuperSecurePasswordDev"
+}

@@ -7,4 +7,27 @@ on:
     branches: ["*"]
 
 jobs:
-  
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.20'
+
+      - name: Build binary
+        run: go build -o fp-devops main.go
+        working-directory: ./app
+    
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: fp-devops-binary
+          path: ./app/fp-devops
+
+      - name: Build Docker image
+        run: docker compose up -d --build
+        working-directory: ./app

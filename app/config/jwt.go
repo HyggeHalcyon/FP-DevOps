@@ -32,7 +32,7 @@ type jwtService struct {
 func NewJWTService() JWTService {
 	return &jwtService{
 		secretKey: getSecretKey(),
-		issuer:    "TEKBER 2024",
+		issuer:    "DevOps Spring 2025",
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"FP-DevOps/constants"
 	"FP-DevOps/entity"
 
 	"github.com/joho/godotenv"
@@ -17,7 +16,7 @@ func RunExtension(db *gorm.DB) {
 }
 
 func SetUpDatabaseConnection() *gorm.DB {
-	if os.Getenv("APP_ENV") != constants.ENUM_RUN_PRODUCTION {
+	if os.Getenv("ENV") == "" {
 		err := godotenv.Load(".env")
 		if err != nil {
 			fmt.Println(err)

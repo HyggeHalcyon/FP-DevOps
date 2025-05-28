@@ -10,13 +10,25 @@ variable "resource_group_name_prefix" {
   description = "Prefix of the resource group name that's combined with a random ID so name is unique in your Azure subscription."
 }
 
-variable "username" {
+variable "username_production" {
   type        = string
   description = "The username for the local account that will be created on the new VM."
   default     = "azureadmin"
 }
 
-variable "password" {
+variable "password_production" {
+  type        = string
+  description = "The password for the local account that will be created on the new VM."
+  default     = "SuperSecurePassword"
+}
+
+variable "username_development" {
+  type        = string
+  description = "The username for the local account that will be created on the new VM."
+  default     = "azureadmin"
+}
+
+variable "password_development" {
   type        = string
   description = "The password for the local account that will be created on the new VM."
   default     = "SuperSecurePassword"
