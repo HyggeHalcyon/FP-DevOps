@@ -44,6 +44,6 @@ jobs:
           DB_USER: postgres
           DB_PASS: postgres
           DB_NAME: test_db
-          APP_ENV: production
+          ENV: development
         working-directory: ./app
         run: go test -v -cover ./...
