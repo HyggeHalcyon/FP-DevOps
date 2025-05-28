@@ -1,10 +1,49 @@
 name: run-test-cases
 
-on:
-  push: 
-    branches: ["*"]
-  pull_request:
-    branches: ["*"]
+on: [push, pull_request]
 
 jobs:
-  
+  test:
+    name: Run Go Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          until pg_isready -h localhost -p 5432; do
+            sleep 1
+          done
+
+      - name: Run tests
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASS: postgres
+          DB_NAME: test_db
+          APP_ENV: production
+        working-directory: ./app
+        run: go test -v -cover ./...
