@@ -10,7 +10,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    environment: ${{ github.ref_name == 'main' && 'Production' || 'Development' }}
 
     steps:
       - name: Install SSH client
