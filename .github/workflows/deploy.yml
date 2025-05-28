@@ -54,4 +54,4 @@ jobs:
             cd app
             sudo docker-compose down
 
-            sudo ENV=${{ secrets.ENV }} DB_HOST=${{ secrets.DB_HOST }} DB_USER=${{ secrets.DB_USER }} DB_PASS=${{ secrets.DB_PASS }} DB_NAME=${{ secrets.DB_NAME }} DB_PORT=${{ secrets.DB_PORT }} JWT_SECRET=${{ secrets.JWT_SECRET }} sudo docker-compose up -d --build
+            sudo env ENV=${{ secrets.ENV }} DB_HOST=${{ secrets.DB_HOST }} DB_USER=${{ secrets.DB_USER }} DB_PASS=${{ secrets.DB_PASS }} DB_NAME=${{ secrets.DB_NAME }} DB_PORT=${{ secrets.DB_PORT }} JWT_SECRET=${{ secrets.JWT_SECRET }} docker-compose up -d --build
