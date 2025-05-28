@@ -32,8 +32,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y git docker.io docker-compose
 
-            sudo chmod 777 /opt
-            cd /opt
+            cd ~
 
             # Clone or update FP-DevOps repo
             if [ ! -d "FP-DevOps" ]; then
@@ -45,6 +44,8 @@ jobs:
             git pull origin ${{ github.ref_name }}
 
             cd app
+            sudo docker-compose down
+
             sudo ENV=${{ secrets.ENV }} \
             DB_HOST=${{ secrets.DB_HOST }} \
             DB_USER=${{ secrets.DB_USER }} \
