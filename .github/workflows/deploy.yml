@@ -40,18 +40,16 @@ jobs:
             fi
 
             cd FP-DevOps
-            git checkout ${{ github.ref_name }}
-            git pull origin ${{ github.ref_name }}
 
             BRANCH_NAME="${{ github.ref_name }}"
 
             if [ "$BRANCH_NAME" = "main" ]; then
               git checkout main
+              git pull origin main
             else
               git checkout development
+              git pull origin development
             fi
-
-            git pull origin "$BRANCH_NAME"
 
             cd app
             sudo docker-compose down
