@@ -24,10 +24,13 @@ func main() {
 		jwtService config.JWTService = config.NewJWTService()
 
 		userRepository repository.UserRepository = repository.NewUserRepository(db)
+		fileRepository repository.FileRepository = repository.NewFileRepository(db)
 
 		userService service.UserService = service.NewUserService(userRepository)
+		fileService service.FileService = service.NewFileService(fileRepository)
 
 		userController controller.UserController = controller.NewUserController(userService, jwtService)
+		fileController controller.FileController = controller.NewFileController(fileService, jwtService)
 
 		indexView view.IndexView = view.NewIndexView()
 	)
@@ -37,6 +40,7 @@ func main() {
 	server.LoadHTMLGlob("templates/*")
 
 	routes.User(server, userController, jwtService)
+	routes.File(server, fileController, jwtService)
 	routes.Index(server, indexView)
 
 	if err := seeder.RunSeeders(db); err != nil {
