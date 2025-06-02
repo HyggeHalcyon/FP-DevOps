@@ -11,7 +11,6 @@ import (
 	"FP-DevOps/repository"
 	"FP-DevOps/routes"
 	"FP-DevOps/service"
-	"FP-DevOps/view"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/joho/godotenv/autoload"
@@ -31,8 +30,7 @@ func main() {
 
 		userController controller.UserController = controller.NewUserController(userService, jwtService)
 		fileController controller.FileController = controller.NewFileController(fileService, jwtService)
-
-		indexView view.IndexView = view.NewIndexView()
+		viewController controller.ViewController = controller.NewViewController(jwtService)
 	)
 
 	server := gin.Default()
@@ -41,7 +39,7 @@ func main() {
 
 	routes.User(server, userController, jwtService)
 	routes.File(server, fileController, jwtService)
-	routes.Index(server, indexView)
+	routes.View(server, viewController, jwtService)
 
 	if err := seeder.RunSeeders(db); err != nil {
 		log.Fatalf("error migration seeder: %v", err)

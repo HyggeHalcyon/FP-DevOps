@@ -54,7 +54,6 @@ func AuthenticateIfExists(jwtService config.JWTService) gin.HandlerFunc {
 		}
 
 		if !strings.Contains(authHeader, "Bearer ") {
-			abortTokenInvalid(ctx)
 			return
 		}
 
@@ -64,6 +63,37 @@ func AuthenticateIfExists(jwtService config.JWTService) gin.HandlerFunc {
 			if err.Error() == dto.ErrTokenExpired.Error() {
 				return
 			}
+			return
+		}
+
+		ctx.Set(constants.CTX_KEY_TOKEN, authHeader)
+		ctx.Set(constants.CTX_KEY_USER_ID, userID)
+		ctx.Set(constants.CTX_KEY_ROLE_NAME, userRole)
+		ctx.Next()
+	}
+}
+
+func ForceLogin(jwtService config.JWTService) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		authHeader := ctx.GetHeader("Authorization")
+		if authHeader == "" {
+			ctx.Redirect(http.StatusFound, "/login")
+			return
+		}
+
+		if !strings.Contains(authHeader, "Bearer ") {
+			ctx.Redirect(http.StatusFound, "/login")
+			return
+		}
+
+		authHeader = strings.Replace(authHeader, "Bearer ", "", -1)
+		userID, userRole, err := jwtService.GetPayloadInsideToken(authHeader)
+		if err != nil {
+			if err.Error() == dto.ErrTokenExpired.Error() {
+				ctx.Redirect(http.StatusFound, "/login")
+				return
+			}
+			ctx.Redirect(http.StatusFound, "/login")
 			return
 		}
 
