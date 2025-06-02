@@ -29,19 +29,22 @@ type (
 	}
 
 	FileUpdate struct {
-		Filename string `json:"filename" form:"filename"`
-	}
-
-	GetFileResponse struct {
-		Content  []byte
-		Filename string
-		MimeType string
+		Filename  string `json:"filename" form:"filename"`
+		Shareable *bool  `json:"shareable" form:"shareable"`
 	}
 
 	FileResponse struct {
-		ID       string `json:"id" form:"id"`
-		Filename string `json:"filename" form:"filename"`
-		Size     int64  `json:"size" form:"size"`
-		MimeType string `json:"mime_type" form:"mime_type"`
+		ID        string `json:"id" form:"id"`
+		Filename  string `json:"filename" form:"filename"`
+		Size      int64  `json:"size" form:"size"`
+		MimeType  string `json:"mime_type" form:"mime_type"`
+		Shareable *bool  `json:"shareable" form:"shareable"`
+
+		Content []byte `json:"content,omitempty" form:"content,omitempty"`
+	}
+
+	FilePaginationResponse struct {
+		Data []FileResponse `json:"data"`
+		PaginationMetadata
 	}
 )

@@ -5,6 +5,7 @@ import (
 	"FP-DevOps/dto"
 	"FP-DevOps/entity"
 	"fmt"
+	"math"
 	"os"
 
 	"gorm.io/gorm"
@@ -13,6 +14,7 @@ import (
 type (
 	FileRepository interface {
 		Get(string) (entity.File, error)
+		GetPagination(string, string, int, int) ([]entity.File, int64, int64, error)
 		Create(entity.File) (entity.File, error)
 		Update(entity.File) (entity.File, error)
 		Delete(string) error
@@ -39,6 +41,33 @@ func (r *fileRepository) Get(fileID string) (entity.File, error) {
 	}
 
 	return file, nil
+}
+
+func (r *fileRepository) GetPagination(userID, search string, limit, page int) ([]entity.File, int64, int64, error) {
+	var files []entity.File
+	var count int64
+
+	if search != "" {
+		err := r.db.Model(&entity.File{}).Where("user_id = ?", userID).Where("filename LIKE ?", "%"+search+"%").Count(&count).Error
+		if err != nil {
+			return nil, 0, 0, err
+		}
+	} else {
+		err := r.db.Where("user_id = ?", userID).Model(&entity.File{}).Count(&count).Error
+		if err != nil {
+			return nil, 0, 0, err
+		}
+	}
+
+	maxPage := int64(math.Ceil(float64(count) / float64(limit)))
+	offset := (page - 1) * limit
+
+	err := r.db.Where("user_id = ?", userID).Where("filename LIKE ?", "%"+search+"%").Offset(offset).Limit(limit).Find(&files).Error
+	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	return files, maxPage, count, nil
 }
 
 func (r *fileRepository) Create(file entity.File) (entity.File, error) {

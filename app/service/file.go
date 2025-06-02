@@ -20,7 +20,8 @@ type (
 		Create(context.Context, string, dto.CreateFileRequest) (dto.FileResponse, error)
 		Update(context.Context, string, string, dto.FileUpdate) (dto.FileResponse, error)
 		Delete(context.Context, string, string) error
-		Get(context.Context, string, string) (dto.GetFileResponse, error)
+		GetFile(context.Context, string, string) (dto.FileResponse, error)
+		GetPaginated(context.Context, string, dto.PaginationQuery) (dto.FilePaginationResponse, error)
 	}
 
 	fileService struct {
@@ -79,10 +80,11 @@ func (s *fileService) Create(ctx context.Context, userID string, req dto.CreateF
 	}
 
 	return dto.FileResponse{
-		ID:       fileEntity.ID.String(),
-		Filename: fileEntity.Filename,
-		Size:     fileEntity.Size,
-		MimeType: fileEntity.MimeType,
+		ID:        fileEntity.ID.String(),
+		Filename:  fileEntity.Filename,
+		Size:      fileEntity.Size,
+		MimeType:  fileEntity.MimeType,
+		Shareable: fileEntity.Shareable,
 	}, err
 }
 
@@ -100,17 +102,19 @@ func (s *fileService) Update(ctx context.Context, userID, fileID string, req dto
 	}
 
 	if _, err := s.fileRepo.Update(entity.File{
-		ID:       uuid.MustParse(fileID),
-		Filename: req.Filename,
+		ID:        uuid.MustParse(fileID),
+		Filename:  req.Filename,
+		Shareable: req.Shareable,
 	}); err != nil {
 		return dto.FileResponse{}, err
 	}
 
 	return dto.FileResponse{
-		ID:       file.ID.String(),
-		Filename: req.Filename,
-		Size:     file.Size,
-		MimeType: file.MimeType,
+		ID:        file.ID.String(),
+		Filename:  req.Filename,
+		Size:      file.Size,
+		MimeType:  file.MimeType,
+		Shareable: req.Shareable,
 	}, nil
 }
 
@@ -141,27 +145,69 @@ func (s *fileService) Delete(ctx context.Context, userID, fileID string) error {
 	return nil
 }
 
-func (s *fileService) Get(ctx context.Context, userID, fileID string) (dto.GetFileResponse, error) {
+func (s *fileService) GetFile(ctx context.Context, userID, fileID string) (dto.FileResponse, error) {
 	file, err := s.fileRepo.Get(fileID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return dto.GetFileResponse{}, dto.ErrFileNotFound
+			return dto.FileResponse{}, dto.ErrFileNotFound
 		}
-		return dto.GetFileResponse{}, err
+		return dto.FileResponse{}, err
 	}
 
-	if file.UserID.String() != userID {
-		return dto.GetFileResponse{}, dto.ErrUnauthorizedFileAccess
+	if file.UserID.String() != userID && !*file.Shareable {
+		return dto.FileResponse{}, dto.ErrUnauthorizedFileAccess
 	}
 
 	data, err := s.fileRepo.ReadFile(file)
 	if err != nil {
-		return dto.GetFileResponse{}, err
+		return dto.FileResponse{}, err
 	}
 
-	return dto.GetFileResponse{
-		Content:  data,
-		Filename: file.Filename,
-		MimeType: file.MimeType,
+	return dto.FileResponse{
+		Content:   data,
+		Filename:  file.Filename,
+		MimeType:  file.MimeType,
+		Shareable: file.Shareable,
+	}, nil
+}
+
+func (s *fileService) GetPaginated(ctx context.Context, userID string, req dto.PaginationQuery) (dto.FilePaginationResponse, error) {
+	var limit int
+	var page int
+
+	limit = req.PerPage
+	if limit <= 0 {
+		limit = constants.ENUM_PAGINATION_LIMIT
+	}
+
+	page = req.Page
+	if page <= 0 {
+		page = constants.ENUM_PAGINATION_PAGE
+	}
+
+	rsvps, maxPage, count, err := s.fileRepo.GetPagination(userID, req.Search, limit, page)
+	if err != nil {
+		return dto.FilePaginationResponse{}, err
+	}
+
+	var result []dto.FileResponse
+	for _, rsvp := range rsvps {
+		result = append(result, dto.FileResponse{
+			ID:        rsvp.ID.String(),
+			Filename:  rsvp.Filename,
+			Size:      rsvp.Size,
+			MimeType:  rsvp.MimeType,
+			Shareable: rsvp.Shareable,
+		})
+	}
+
+	return dto.FilePaginationResponse{
+		Data: result,
+		PaginationMetadata: dto.PaginationMetadata{
+			Page:    page,
+			PerPage: limit,
+			MaxPage: maxPage,
+			Count:   count,
+		},
 	}, nil
 }

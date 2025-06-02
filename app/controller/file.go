@@ -16,7 +16,8 @@ type (
 		Create(ctx *gin.Context)
 		UpdateByID(ctx *gin.Context)
 		DeleteByID(ctx *gin.Context)
-		GetByID(ctx *gin.Context)
+		GetFileByID(ctx *gin.Context)
+		GetPaginated(ctx *gin.Context)
 	}
 
 	fileController struct {
@@ -85,11 +86,12 @@ func (c *fileController) DeleteByID(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
-func (c *fileController) GetByID(ctx *gin.Context) {
+func (c *fileController) GetFileByID(ctx *gin.Context) {
 	id := ctx.Param("id")
 	view := ctx.Query("view")
+	userID := ctx.GetString(constants.CTX_KEY_USER_ID)
 
-	res, err := c.fileService.Get(ctx.Request.Context(), ctx.GetString(constants.CTX_KEY_USER_ID), id)
+	res, err := c.fileService.GetFile(ctx.Request.Context(), userID, id)
 	if err != nil {
 		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_FILE, err.Error(), nil)
 		ctx.AbortWithStatusJSON(http.StatusInternalServerError, response)
@@ -105,4 +107,28 @@ func (c *fileController) GetByID(ctx *gin.Context) {
 	}
 
 	ctx.Writer.Write(res.Content)
+}
+
+func (c *fileController) GetPaginated(ctx *gin.Context) {
+	var req dto.PaginationQuery
+	if err := ctx.ShouldBind(&req); err != nil {
+		res := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, err.Error(), nil)
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, res)
+		return
+	}
+
+	result, err := c.fileService.GetPaginated(ctx.Request.Context(), ctx.GetString(constants.CTX_KEY_USER_ID), req)
+	if err != nil {
+		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_FILE, err.Error(), nil)
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, response)
+		return
+	}
+
+	res := utils.Response{
+		Status:  true,
+		Message: dto.MESSAGE_SUCCESS_GET_FILE,
+		Data:    result.Data,
+		Meta:    result.PaginationMetadata,
+	}
+	ctx.JSON(http.StatusOK, res)
 }
