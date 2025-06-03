@@ -58,6 +58,7 @@ func AuthenticateIfExists(jwtService config.JWTService) gin.HandlerFunc {
 
 		if authHeader != "" {
 			if !strings.Contains(authHeader, "Bearer ") {
+				ctx.Abort()
 				return
 			}
 
@@ -65,27 +66,25 @@ func AuthenticateIfExists(jwtService config.JWTService) gin.HandlerFunc {
 			userID, userRole, err = jwtService.GetPayloadInsideToken(authHeader)
 			if err != nil {
 				if err.Error() == dto.ErrTokenExpired.Error() {
+					ctx.Abort()
 					return
 				}
+				ctx.Abort()
 				return
 			}
 		} else if cookieToken != "" {
 			cookieToken, err := ctx.Cookie("jwt")
 			if err != nil || strings.TrimSpace(cookieToken) == "" {
+				ctx.Abort()
 				return
 			}
 
 			userID, userRole, err = jwtService.GetPayloadInsideToken(cookieToken)
 			if err != nil {
 				ctx.SetCookie("jwt", "", -1, "/", "", false, true)
+				ctx.Abort()
 				return
 			}
-		} else {
-			ctx.HTML(http.StatusBadRequest, "privateError.tmpl", gin.H{
-				"title":   "Unauthorized Access",
-				"message": "You do not have permission to access this file.",
-			})
-			return
 		}
 
 		ctx.Set(constants.CTX_KEY_TOKEN, authHeader)
