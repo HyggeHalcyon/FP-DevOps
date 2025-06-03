@@ -48,26 +48,71 @@ func Authenticate(jwtService config.JWTService) gin.HandlerFunc {
 
 func AuthenticateIfExists(jwtService config.JWTService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		var userID, userRole string
+
 		authHeader := ctx.GetHeader("Authorization")
-		if authHeader == "" {
-			return
-		}
-
-		if !strings.Contains(authHeader, "Bearer ") {
-			abortTokenInvalid(ctx)
-			return
-		}
-
-		authHeader = strings.Replace(authHeader, "Bearer ", "", -1)
-		userID, userRole, err := jwtService.GetPayloadInsideToken(authHeader)
+		cookieToken, err := ctx.Cookie("jwt")
 		if err != nil {
-			if err.Error() == dto.ErrTokenExpired.Error() {
+			cookieToken = ""
+		}
+
+		if authHeader != "" {
+			if !strings.Contains(authHeader, "Bearer ") {
 				return
 			}
+
+			authHeader = strings.Replace(authHeader, "Bearer ", "", -1)
+			userID, userRole, err = jwtService.GetPayloadInsideToken(authHeader)
+			if err != nil {
+				if err.Error() == dto.ErrTokenExpired.Error() {
+					return
+				}
+				return
+			}
+		} else if cookieToken != "" {
+			cookieToken, err := ctx.Cookie("jwt")
+			if err != nil || strings.TrimSpace(cookieToken) == "" {
+				return
+			}
+
+			userID, userRole, err = jwtService.GetPayloadInsideToken(cookieToken)
+			if err != nil {
+				ctx.SetCookie("jwt", "", -1, "/", "", false, true)
+				return
+			}
+		} else {
+			ctx.HTML(http.StatusBadRequest, "privateError.tmpl", gin.H{
+				"title":   "Unauthorized Access",
+				"message": "You do not have permission to access this file.",
+			})
 			return
 		}
 
 		ctx.Set(constants.CTX_KEY_TOKEN, authHeader)
+		ctx.Set(constants.CTX_KEY_USER_ID, userID)
+		ctx.Set(constants.CTX_KEY_ROLE_NAME, userRole)
+		ctx.Next()
+	}
+}
+
+func ForceLogin(jwtService config.JWTService) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		cookieToken, err := ctx.Cookie("jwt")
+		if err != nil || strings.TrimSpace(cookieToken) == "" {
+			ctx.Redirect(http.StatusFound, "/login")
+			ctx.Abort()
+			return
+		}
+
+		userID, userRole, err := jwtService.GetPayloadInsideToken(cookieToken)
+		if err != nil {
+			ctx.SetCookie("jwt", "", -1, "/", "", false, true)
+			ctx.Redirect(http.StatusFound, "/login")
+			ctx.Abort()
+			return
+		}
+
+		ctx.Set(constants.CTX_KEY_TOKEN, cookieToken)
 		ctx.Set(constants.CTX_KEY_USER_ID, userID)
 		ctx.Set(constants.CTX_KEY_ROLE_NAME, userRole)
 		ctx.Next()
