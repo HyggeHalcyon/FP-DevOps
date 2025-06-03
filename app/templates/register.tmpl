@@ -1,8 +1,194 @@
-<html>
-  <h1>
-    {{ .title }} 
-  </h1>
-  <h2>
-    ENVIRONMENT: {{ .env }}
-  </h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ .title }}</title>
+  <style>
+    body {
+      font-family: Poppins, sans-serif;
+      max-width: 400px;
+      margin: 100px auto;
+      padding: 20px;
+      background-color: #01153E;
+    }
+    .register-container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    .error {
+      color: #dc3545;
+      margin-top: 10px;
+      display: none;
+    }
+    .success {
+      color: #28a745;
+      margin-top: 10px;
+      display: none;
+    }
+    .links {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .links a {
+      color: #007bff;
+      text-decoration: none;
+    }
+    .links a:hover {
+      text-decoration: underline;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .password-requirements {
+      font-size: 12px;
+      color: blue;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="register-container">
+    <h1>Register</h1>
+    <form id="registerForm">
+      <div class="form-group">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required />
+      </div>
+      <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required />
+        <div class="password-requirements">
+          Minimum 3 characters required
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password:</label>
+        <input
+          type="password"
+          id="confirmPassword"
+          name="confirmPassword"
+          required
+        />
+      </div>
+      <button type="submit">Register</button>
+      <div id="error" class="error"></div>
+      <div id="success" class="success"></div>
+    </form>
+    <div class="links">
+      <p>
+        Already have an account?
+        <a href="/login">Login here</a>
+      </p>
+      <p><a href="/">Back to Home</a></p>
+    </div>
+  </div>
+
+  <script>
+    // Helper: read a cookie by name
+    function getCookie(name) {
+      const parts = document.cookie.split(';').map(s => s.trim());
+      for (let part of parts) {
+        if (part.startsWith(name + '=')) {
+          return part.substring((name + '=').length);
+        }
+      }
+      return null;
+    }
+
+    document
+      .getElementById('registerForm')
+      .addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        const errorDiv = document.getElementById('error');
+        const successDiv = document.getElementById('success');
+
+        // Hide previous messages
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+
+        // Passwords match?
+        if (password !== confirmPassword) {
+          errorDiv.textContent = 'Passwords do not match';
+          errorDiv.style.display = 'block';
+          return;
+        }
+        // Minimum length checks
+        if (password.length < 3) {
+          errorDiv.textContent = 'Password must be at least 3 characters long';
+          errorDiv.style.display = 'block';
+          return;
+        }
+        if (username.length < 3) {
+          errorDiv.textContent = 'Username must be at least 3 characters long';
+          errorDiv.style.display = 'block';
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/user/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+          const data = await response.json();
+
+          if (data.status) {
+            // Successful registration → redirect to login after a short delay
+            successDiv.textContent =
+              'Registration successful! Redirecting to login...';
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 2000);
+          } else {
+            // Backend returned an error
+            errorDiv.textContent = data.error || 'Registration failed';
+            errorDiv.style.display = 'block';
+          }
+        } catch (err) {
+          errorDiv.textContent = 'Network error. Please try again.';
+          errorDiv.style.display = 'block';
+        }
+      });
+  </script>
+</body>
 </html>

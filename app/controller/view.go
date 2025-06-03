@@ -29,7 +29,7 @@ func NewViewController(jwt config.JWTService) ViewController {
 
 func (c *viewController) Index(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "index.tmpl", gin.H{
-		"title": "Welcome to FP-DevOps",
+		"title": "Welcome to Cloud File Manager",
 		"env":   os.Getenv("ENV"),
 	})
 }

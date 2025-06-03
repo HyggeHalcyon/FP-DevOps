@@ -93,6 +93,13 @@ func (c *fileController) GetFileByID(ctx *gin.Context) {
 
 	res, err := c.fileService.GetFile(ctx.Request.Context(), userID, id)
 	if err != nil {
+		if err == dto.ErrUnauthorizedFileAccess {
+			ctx.HTML(http.StatusBadRequest, "privateError.tmpl", gin.H{
+				"title":   "Unauthorized Access",
+				"message": "You do not have permission to access this file.",
+			})
+			return
+		}
 		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_FILE, err.Error(), nil)
 		ctx.AbortWithStatusJSON(http.StatusInternalServerError, response)
 		return
