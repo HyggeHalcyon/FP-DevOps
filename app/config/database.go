@@ -2,13 +2,16 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"FP-DevOps/entity"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func RunExtension(db *gorm.DB) {
@@ -58,4 +61,24 @@ func CloseDatabaseConnection(db *gorm.DB) {
 		panic(err)
 	}
 	dbSQL.Close()
+}
+
+func SetUpTestDatabaseConnection() *gorm.DB {
+    dbURL := "file::memory:?cache=shared" // Menggunakan SQLite in-memory untuk tes
+
+    db, err := gorm.Open(sqlite.Open(dbURL), &gorm.Config{
+        // Opsional: Aktifkan logging untuk melihat query DB saat tes berjalan
+        Logger: logger.Default.LogMode(logger.Info),
+    })
+    if err != nil {
+        log.Fatalf("Failed to connect to test database: %v", err) // Menggunakan log.Fatalf
+    }
+
+    // AutoMigrate model-model yang dibutuhkan oleh tes
+    err = db.AutoMigrate(&entity.User{}, &entity.File{}) // Pastikan ini model yang benar
+    if err != nil {
+        log.Fatalf("Failed to auto migrate test database: %v", err)
+    }
+
+    return db
 }
