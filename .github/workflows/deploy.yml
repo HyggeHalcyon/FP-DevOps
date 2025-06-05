@@ -3,8 +3,6 @@ name: deploy
 on:
   push: 
     branches: ["main", "development"]
-  pull_request:
-    branches: ["development"]
 
 jobs:
   deploy:
@@ -45,9 +43,11 @@ jobs:
 
             if [ "$BRANCH_NAME" = "main" ]; then
               git checkout main
+              git reset --hard HEAD
               git pull origin main
             else
               git checkout development
+              git reset --hard HEAD
               git pull origin development
             fi
 

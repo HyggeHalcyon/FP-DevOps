@@ -1,8 +1,132 @@
-<html>
-  <h1>
-    {{ .title }} 
-  </h1>
-  <h2>
-    ENVIRONMENT: {{ .env }}
-  </h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }}</title>
+    <style>
+        body {
+            font-family: Poppins, sans-serif;
+            max-width: 600px;
+            margin: 100px auto;
+            padding: 20px;
+            background-color: #01153E;
+            text-align: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .nav-links {
+            margin-top: 30px;
+        }
+        .nav-links a {
+            display: inline-block;
+            margin: 10px;
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .nav-links a:hover {
+            background-color: #0056b3;
+        }
+        .nav-links a.register {
+            background-color: #28a745;
+        }
+        .nav-links a.register:hover {
+            background-color: #218838;
+        }
+        .nav-links a.dashboard {
+            background-color: #6f42c1;
+        }
+        .nav-links a.dashboard:hover {
+            background-color: #5a36a3;
+        }
+        .user-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>{{ .title }}</h1>
+        <h2>Login or Register Now!</h2>
+        
+        <div id="user-info" class="user-info">
+            <p>Welcome back, <span id="username"></span>!</p>
+        </div>
+        
+        <div class="nav-links">
+            <div id="guest-links">
+                <a href="/login">Login</a>
+                <a href="/register" class="register">Register</a>
+            </div>
+            <div id="user-links" style="display: none;">
+                <a href="/dashboard" class="dashboard">Dashboard</a>
+                <a href="#" onclick="logout()" style="background-color: #dc3545;">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            location.reload();
+        }
+
+        // Check if user is logged in
+        window.addEventListener('load', function() {
+            const token = localStorage.getItem('token');
+            const username = localStorage.getItem('username');
+            
+            if (token && username) {
+                // Verify token is still valid
+                fetch('/api/user/me', {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status) {
+                        // Token is valid, show user links
+                        document.getElementById('guest-links').style.display = 'none';
+                        document.getElementById('user-links').style.display = 'block';
+                        document.getElementById('user-info').style.display = 'block';
+                        document.getElementById('username').textContent = username;
+                    } else {
+                        // Token is invalid, remove it
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('username');
+                    }
+                })
+                .catch(() => {
+                    // Network error or invalid token
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('username');
+                });
+            }
+        });
+    </script>
+</body>
 </html>
