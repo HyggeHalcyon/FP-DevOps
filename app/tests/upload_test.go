@@ -87,6 +87,10 @@ func Test_UploadFile_OK(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+
+	files, err := os.ReadDir("uploads/" + userID)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, files, "Seharusnya ada file di folder uploads/{userID}")
 }
 
 func Test_UploadFile_TooLarge(t *testing.T) {
