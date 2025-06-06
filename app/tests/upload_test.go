@@ -8,13 +8,16 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"path/filepath"
 
 	"FP-DevOps/config"
 	"FP-DevOps/constants" // Tambahkan import ini untuk CTX_KEY_USER_ID
 	"FP-DevOps/controller"
 	"FP-DevOps/repository"
 	"FP-DevOps/service"
-	"FP-DevOps/entity"
+	"encoding/json"
+	"FP-DevOps/dto"
+
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid" // Tambahkan import ini untuk uuid.New()
@@ -74,24 +77,13 @@ func Test_UploadFile_OK(t *testing.T) {
 	CleanUpTestUsers()
 	users, err := InsertTestUser()
 	assert.NoError(t, err)
-
-	dbCheck := config.SetUpDatabaseConnection()
-
-	var retrievedUser entity.User
-    // Coba ambil user yang baru saja dimasukkan berdasarkan ID-nya
-    result := dbCheck.Where("id = ?", users[0].ID).First(&retrievedUser)
-    
-    // Periksa apakah user berhasil diambil
-    assert.NoError(t, result.Error, "Seharusnya bisa mengambil user yang baru di-insert dari database")
-    assert.NotNil(t, retrievedUser.ID, "ID user yang diambil seharusnya tidak nil")
-    assert.Equal(t, users[0].Username, retrievedUser.Username, "Username user yang diambil harus sesuai")
-
+	
 	r := gin.Default()
 	fileController := SetupFileController()
 
-	// Simulasikan user ID di konteks Gin
+	userID := users[0].ID.String()
 	r.POST("/api/upload", func(ctx *gin.Context) {
-		ctx.Set(constants.CTX_KEY_USER_ID, users[0].ID.String()) // Set user ID dummy
+		ctx.Set(constants.CTX_KEY_USER_ID, userID)
 		fileController.Create(ctx)
 	})
 
@@ -104,9 +96,23 @@ func Test_UploadFile_OK(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	savedFileContent, err := ioutil.ReadFile("uploads/test.txt")
-	assert.NoError(t, err)
-	assert.Equal(t, fileContent, savedFileContent)
+	type SuccessResponse struct {
+		Data dto.FileResponse `json:"data"`
+	}
+	var resBody SuccessResponse
+	err = json.Unmarshal(w.Body.Bytes(), &resBody)
+	assert.NoError(t, err, "Gagal mem-parse respons JSON")
+	assert.NotEmpty(t, resBody.Data.ID, "ID file seharusnya tidak kosong di respons")
+
+	uploadedFileID := resBody.Data.ID
+	uploadedFilename := resBody.Data.Filename
+
+	savedFileName := uploadedFileID + filepath.Ext(uploadedFilename)
+	savedFilePath := filepath.Join("uploads", userID, savedFileName)
+
+	savedFileContent, readErr := ioutil.ReadFile(savedFilePath)
+	assert.NoError(t, readErr, "Gagal membaca file yang disimpan dari path: "+savedFilePath)
+	assert.Equal(t, fileContent, savedFileContent, "Konten file yang disimpan tidak sesuai")
 }
 
 func Test_UploadFile_TooLarge(t *testing.T) {
