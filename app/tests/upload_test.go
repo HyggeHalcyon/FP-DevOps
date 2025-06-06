@@ -69,50 +69,33 @@ func cleanUploadsDir(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// func Test_UploadFile_OK(t *testing.T) {
-// 	gin.SetMode(gin.TestMode)
+func Test_UploadFile_OK(t *testing.T) {
+	gin.SetMode(gin.TestMode)
 
-// 	cleanUploadsDir(t)
-// 	t.Cleanup(func() { cleanUploadsDir(t) })
+	cleanUploadsDir(t)
+	t.Cleanup(func() { cleanUploadsDir(t) })
 
-// 	CleanUpTestUsers()
-// 	users, err := InsertTestUser()
-// 	assert.NoError(t, err)
+	r := gin.Default()
+	fileController := SetupFileController()
 
-// 	r := gin.Default()
-// 	fileController := SetupFileController()
+	r.POST("/api/upload", func(ctx *gin.Context) {
+		ctx.Set(constants.CTX_KEY_USER_ID, uuid.New().String())
+		fileController.Create(ctx)
+	})
 
-// 	userID := users[0].ID.String()
-// 	r.POST("/api/upload", func(ctx *gin.Context) {
-// 		ctx.Set(constants.CTX_KEY_USER_ID, userID)
-// 		fileController.Create(ctx)
-// 	})
+	dummyContent := []byte("ini adalah konten file uji")
+	req, err := CreateMultipartRequest("file", "dummy.txt", dummyContent)
+	assert.NoError(t, err)
 
-// 	fileContent := []byte("This is a test file.")
-// 	req, err := CreateMultipartRequest("file", "test.txt", fileContent)
-// 	assert.NoError(t, err)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
 
-// 	w := httptest.NewRecorder()
-// 	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
 
-// 	type SuccessResponse struct {
-// 		Data dto.FileResponse `json:"data"`
-// 	}
-// 	var resBody SuccessResponse
-// 	err = json.Unmarshal(w.Body.Bytes(), &resBody)
-// 	assert.NoError(t, err, "Gagal mem-parse respons JSON")
-// 	assert.NotEmpty(t, resBody.Data.ID, "ID file seharusnya tidak kosong di respons")
-
-// 	uploadedFileID := resBody.Data.ID
-// 	uploadedFilename := resBody.Data.Filename
-
-// 	savedFileName := uploadedFileID + filepath.Ext(uploadedFilename)
-// 	savedFilePath := filepath.Join("uploads", userID, savedFileName)
-
-// 	savedFileContent, readErr := ioutil.ReadFile(savedFilePath)
-// 	assert.NoError(t, readErr, "Gagal membaca file yang disimpan dari path: "+savedFilePath)
-// 	assert.Equal(t, fileContent, savedFileContent, "Konten file yang disimpan tidak sesuai")
-// }
+	// Cek apakah file beneran ke-upload
+	_, err = os.Stat("uploads/dummy.txt")
+	assert.NoError(t, err, "File harus berhasil disimpan")
+}
 
 func Test_UploadFile_TooLarge(t *testing.T) {
 	gin.SetMode(gin.TestMode)
