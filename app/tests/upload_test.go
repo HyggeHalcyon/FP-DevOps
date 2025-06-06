@@ -76,13 +76,6 @@ func Test_UploadFile_OK(t *testing.T) {
 	r.POST("/api/upload", func(ctx *gin.Context) {
 		ctx.Set(constants.CTX_KEY_USER_ID, userID)
 
-		// Pastikan folder userID ada
-		err := os.MkdirAll("uploads/"+userID, os.ModePerm)
-		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create upload dir"})
-			return
-		}
-
 		fileController.Create(ctx)
 	})
 
