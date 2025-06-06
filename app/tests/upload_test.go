@@ -10,14 +10,14 @@ import (
 	"testing"
 
 	"FP-DevOps/config"
-	"FP-DevOps/controller"
 	"FP-DevOps/constants" // Tambahkan import ini untuk CTX_KEY_USER_ID
+	"FP-DevOps/controller"
 	"FP-DevOps/repository"
 	"FP-DevOps/service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
 	"github.com/google/uuid" // Tambahkan import ini untuk uuid.New()
+	"github.com/stretchr/testify/assert"
 )
 
 func SetupFileController() controller.FileController {
@@ -70,12 +70,16 @@ func Test_UploadFile_OK(t *testing.T) {
 	cleanUploadsDir(t)
 	t.Cleanup(func() { cleanUploadsDir(t) })
 
+	CleanUpTestUsers()
+	users, err := InsertTestUser()
+	assert.NoError(t, err)
+
 	r := gin.Default()
 	fileController := SetupFileController()
 
 	// Simulasikan user ID di konteks Gin
 	r.POST("/api/upload", func(ctx *gin.Context) {
-		ctx.Set(constants.CTX_KEY_USER_ID, uuid.New().String()) // Set user ID dummy
+		ctx.Set(constants.CTX_KEY_USER_ID, users[0].ID.String()) // Set user ID dummy
 		fileController.Create(ctx)
 	})
 
