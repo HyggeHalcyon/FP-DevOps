@@ -2,23 +2,17 @@ package tests
 
 import (
 	"bytes"
-	// "io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 
-	// "path/filepath"
-
 	"FP-DevOps/config"
 	"FP-DevOps/constants"
 	"FP-DevOps/controller"
 	"FP-DevOps/repository"
 	"FP-DevOps/service"
-
-	// "encoding/json"
-	// "FP-DevOps/dto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -70,33 +64,40 @@ func cleanUploadsDir(t *testing.T) {
 }
 
 func Test_UploadFile_OK(t *testing.T) {
-    gin.SetMode(gin.TestMode)
+	gin.SetMode(gin.TestMode)
 
-    cleanUploadsDir(t)
-    t.Cleanup(func() { cleanUploadsDir(t) })
+	cleanUploadsDir(t)
+	t.Cleanup(func() { cleanUploadsDir(t) })
 
-    r := gin.Default()
-    fileController := SetupFileController()
+	r := gin.Default()
+	fileController := SetupFileController()
 
-    userID := uuid.New().String()
-    r.POST("/api/upload", func(ctx *gin.Context) {
-        ctx.Set(constants.CTX_KEY_USER_ID, userID)
-        fileController.Create(ctx)
-    })
+	userID := uuid.New().String()
+	r.POST("/api/upload", func(ctx *gin.Context) {
+		ctx.Set(constants.CTX_KEY_USER_ID, userID)
 
-    dummyContent := []byte("ini adalah konten file uji")
-    req, err := CreateMultipartRequest("file", "dummy.txt", dummyContent)
-    assert.NoError(t, err)
+		// Pastikan folder userID ada
+		err := os.MkdirAll("uploads/"+userID, os.ModePerm)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create upload dir"})
+			return
+		}
 
-    w := httptest.NewRecorder()
-    r.ServeHTTP(w, req)
+		fileController.Create(ctx)
+	})
 
-    assert.Equal(t, http.StatusOK, w.Code)
+	dummyContent := []byte("ini adalah konten file uji")
+	req, err := CreateMultipartRequest("file", "dummy.txt", dummyContent)
+	assert.NoError(t, err)
 
-    // Cek apakah ada file di uploads/{userID}/
-    files, err := os.ReadDir("uploads/" + userID)
-    assert.NoError(t, err)
-    assert.NotEmpty(t, files, "Seharusnya ada file di folder uploads/{userID}")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	files, err := os.ReadDir("uploads/" + userID)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, files, "Seharusnya ada file di folder uploads/{userID}")
 }
 
 func Test_UploadFile_TooLarge(t *testing.T) {
@@ -110,8 +111,17 @@ func Test_UploadFile_TooLarge(t *testing.T) {
 
 	fileController := SetupFileController()
 
+	userID := uuid.New().String()
 	r.POST("/api/upload", func(ctx *gin.Context) {
-		ctx.Set(constants.CTX_KEY_USER_ID, uuid.New().String())
+		ctx.Set(constants.CTX_KEY_USER_ID, userID)
+
+		// Pastikan folder userID ada
+		err := os.MkdirAll("uploads/"+userID, os.ModePerm)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create upload dir"})
+			return
+		}
+
 		fileController.Create(ctx)
 	})
 
@@ -124,7 +134,7 @@ func Test_UploadFile_TooLarge(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
-	_, err = os.Stat("uploads/large.txt")
+	_, err = os.Stat("uploads/" + userID + "/large.txt")
 	assert.True(t, os.IsNotExist(err), "File besar seharusnya tidak tersimpan")
 }
 
@@ -137,9 +147,17 @@ func Test_UploadFile_NoFile(t *testing.T) {
 	r := gin.Default()
 	fileController := SetupFileController()
 
-	// Simulasikan user ID di konteks Gin
+	userID := uuid.New().String()
 	r.POST("/api/upload", func(ctx *gin.Context) {
-		ctx.Set(constants.CTX_KEY_USER_ID, uuid.New().String()) // Set user ID dummy
+		ctx.Set(constants.CTX_KEY_USER_ID, userID) // Set user ID dummy
+
+		// Pastikan folder userID ada
+		err := os.MkdirAll("uploads/"+userID, os.ModePerm)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create upload dir"})
+			return
+		}
+
 		fileController.Create(ctx)
 	})
 
