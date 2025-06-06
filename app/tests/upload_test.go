@@ -14,6 +14,7 @@ import (
 	"FP-DevOps/controller"
 	"FP-DevOps/repository"
 	"FP-DevOps/service"
+	"FP-DevOps/entity"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid" // Tambahkan import ini untuk uuid.New()
@@ -73,6 +74,17 @@ func Test_UploadFile_OK(t *testing.T) {
 	CleanUpTestUsers()
 	users, err := InsertTestUser()
 	assert.NoError(t, err)
+
+	dbCheck := config.SetUpDatabaseConnection()
+
+	var retrievedUser entity.User
+    // Coba ambil user yang baru saja dimasukkan berdasarkan ID-nya
+    result := dbCheck.Where("id = ?", users[0].ID).First(&retrievedUser)
+    
+    // Periksa apakah user berhasil diambil
+    assert.NoError(t, result.Error, "Seharusnya bisa mengambil user yang baru di-insert dari database")
+    assert.NotNil(t, retrievedUser.ID, "ID user yang diambil seharusnya tidak nil")
+    assert.Equal(t, users[0].Username, retrievedUser.Username, "Username user yang diambil harus sesuai")
 
 	r := gin.Default()
 	fileController := SetupFileController()
