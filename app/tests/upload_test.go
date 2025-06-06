@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 
 	"FP-DevOps/config"
-	"FP-DevOps/constants" // Tambahkan import ini untuk CTX_KEY_USER_ID
+	"FP-DevOps/constants"
 	"FP-DevOps/controller"
 	"FP-DevOps/repository"
 	"FP-DevOps/service"
@@ -20,7 +20,7 @@ import (
 
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid" // Tambahkan import ini untuk uuid.New()
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -77,7 +77,7 @@ func Test_UploadFile_OK(t *testing.T) {
 	CleanUpTestUsers()
 	users, err := InsertTestUser()
 	assert.NoError(t, err)
-	
+
 	r := gin.Default()
 	fileController := SetupFileController()
 
@@ -126,9 +126,8 @@ func Test_UploadFile_TooLarge(t *testing.T) {
 
 	fileController := SetupFileController()
 
-	// Simulasikan user ID di konteks Gin
 	r.POST("/api/upload", func(ctx *gin.Context) {
-		ctx.Set(constants.CTX_KEY_USER_ID, uuid.New().String()) // Set user ID dummy
+		ctx.Set(constants.CTX_KEY_USER_ID, uuid.New().String())
 		fileController.Create(ctx)
 	})
 
@@ -139,7 +138,6 @@ func Test_UploadFile_TooLarge(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	// Harapkan 500 Internal Server Error dari controller/service
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
 	_, err = os.Stat("uploads/large.txt")
