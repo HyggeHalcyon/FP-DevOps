@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 
 	"gorm.io/gorm"
 )
@@ -94,22 +93,21 @@ func (r *fileRepository) Delete(fileID string) error {
 }
 
 func (r *fileRepository) WriteFile(userID, fileName string, content []byte) (string, error) {
-	// PENTING: Menggunakan filepath.Join untuk membangun path secara cross-platform
-	directory := filepath.Join(constants.FILE_STORAGE_DIRECTORY, userID)
+	directory := fmt.Sprintf("%s/%s/", constants.FILE_STORAGE_DIRECTORY, userID)
 	if err := os.MkdirAll(directory, os.ModePerm); err != nil {
-		return "", fmt.Errorf("failed to create directory %s: %w", directory, err)
+		return "", err
 	}
 
-	filePath := filepath.Join(directory, fileName)
+	filePath := fmt.Sprintf("%s%s", directory, fileName)
 	newFile, err := os.Create(filePath)
 	defer newFile.Close()
 	if err != nil {
-		return "", fmt.Errorf("failed to create file %s: %w", filePath, err)
+		return "", err
 	}
 
 	_, err = newFile.Write(content)
 	if err != nil {
-		return "", fmt.Errorf("failed to write content to file %s: %w", filePath, err)
+		return "", err
 	}
 
 	return filePath, nil
@@ -120,11 +118,10 @@ func (r *fileRepository) DeleteFile(file entity.File) error {
 		if os.IsNotExist(err) {
 			return r.db.Where("id = ?", file.ID.String()).Delete(&entity.File{}).Error
 		}
-		return fmt.Errorf("failed to get file info for %s: %w", file.Path, err)
 	}
 
 	if err := os.Remove(file.Path); err != nil {
-		return fmt.Errorf("failed to remove file %s from disk: %w", file.Path, err)
+		return err
 	}
 
 	return r.db.Where("id = ?", file.ID.String()).Delete(&entity.File{}).Error
@@ -136,7 +133,7 @@ func (r *fileRepository) ReadFile(file entity.File) ([]byte, error) {
 		if os.IsNotExist(err) {
 			return nil, dto.ErrFileNotFound
 		}
-		return nil, fmt.Errorf("failed to read file %s: %w", file.Path, err)
+		return nil, err
 	}
 
 	return content, nil
