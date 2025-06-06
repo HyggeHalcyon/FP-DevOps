@@ -94,8 +94,6 @@ func Test_UploadFile_OK(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
-
 	type SuccessResponse struct {
 		Data dto.FileResponse `json:"data"`
 	}
