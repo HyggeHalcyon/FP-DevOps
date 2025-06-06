@@ -70,31 +70,33 @@ func cleanUploadsDir(t *testing.T) {
 }
 
 func Test_UploadFile_OK(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+    gin.SetMode(gin.TestMode)
 
-	cleanUploadsDir(t)
-	t.Cleanup(func() { cleanUploadsDir(t) })
+    cleanUploadsDir(t)
+    t.Cleanup(func() { cleanUploadsDir(t) })
 
-	r := gin.Default()
-	fileController := SetupFileController()
+    r := gin.Default()
+    fileController := SetupFileController()
 
-	r.POST("/api/upload", func(ctx *gin.Context) {
-		ctx.Set(constants.CTX_KEY_USER_ID, uuid.New().String())
-		fileController.Create(ctx)
-	})
+    userID := uuid.New().String()
+    r.POST("/api/upload", func(ctx *gin.Context) {
+        ctx.Set(constants.CTX_KEY_USER_ID, userID)
+        fileController.Create(ctx)
+    })
 
-	dummyContent := []byte("ini adalah konten file uji")
-	req, err := CreateMultipartRequest("file", "dummy.txt", dummyContent)
-	assert.NoError(t, err)
+    dummyContent := []byte("ini adalah konten file uji")
+    req, err := CreateMultipartRequest("file", "dummy.txt", dummyContent)
+    assert.NoError(t, err)
 
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+    w := httptest.NewRecorder()
+    r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code)
+    assert.Equal(t, http.StatusOK, w.Code)
 
-	// Cek apakah file beneran ke-upload
-	_, err = os.Stat("uploads/dummy.txt")
-	assert.NoError(t, err, "File harus berhasil disimpan")
+    // Cek apakah ada file di uploads/{userID}/
+    files, err := os.ReadDir("uploads/" + userID)
+    assert.NoError(t, err)
+    assert.NotEmpty(t, files, "Seharusnya ada file di folder uploads/{userID}")
 }
 
 func Test_UploadFile_TooLarge(t *testing.T) {
