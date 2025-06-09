@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -9,8 +10,9 @@ import (
 	"testing"
 
 	"FP-DevOps/config"
-	"FP-DevOps/constants"
 	"FP-DevOps/controller"
+	"FP-DevOps/entity"
+	"FP-DevOps/middleware"
 	"FP-DevOps/repository"
 	"FP-DevOps/service"
 
@@ -63,31 +65,75 @@ func cleanUploadsDir(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func InsertFileUser() (entity.User, error) {
+	db := config.SetUpDatabaseConnection()
+	user := entity.User{
+		ID:       uuid.New(),
+		Username: "uploadtestuser_" + uuid.New().String()[:8],
+		Password: "password123",
+	}
+	if err := db.Create(&user).Error; err != nil {
+		return entity.User{}, err
+	}
+	return user, nil
+}
+
+func CleanUpTestData(userID uuid.UUID) {
+	db := config.SetUpDatabaseConnection()
+	db.Where("user_id = ?", userID).Delete(&entity.File{})
+	db.Where("id = ?", userID).Delete(&entity.User{})
+}
+
 func Test_UploadFile_OK(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	cleanUploadsDir(t)
 	t.Cleanup(func() { cleanUploadsDir(t) })
 
-	r := gin.Default()
+	user, err := InsertFileUser()
+	assert.NoError(t, err)
+	t.Cleanup(func() { CleanUpTestData(user.ID) })
+
+	jwtSvc := config.NewJWTService()
 	fileController := SetupFileController()
 
-	userID := uuid.New().String()
-	r.POST("/api/upload", func(ctx *gin.Context) {
-		ctx.Set(constants.CTX_KEY_USER_ID, userID)
+	r := gin.Default()
+	r.Use(middleware.Authenticate(jwtSvc))
+	r.POST("/api/upload", fileController.Create)
 
-		fileController.Create(ctx)
-	})
+	token := jwtSvc.GenerateToken(user.ID.String(), user.Username)
 
+	fileName := "dummy.txt"
 	dummyContent := []byte("ini adalah konten file uji")
-	req, err := CreateMultipartRequest("file", "dummy.txt", dummyContent)
+	req, err := CreateMultipartRequest("file", fileName, dummyContent)
 	assert.NoError(t, err)
+
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusCreated, w.Code)
 
+	if w.Code != http.StatusCreated {
+		t.Logf("Response body: %s", w.Body.String())
+	}
+
+	db := config.SetUpDatabaseConnection()
+	var fileInDB entity.File
+	err = db.Where("filename = ? AND user_id = ?", fileName, user.ID).First(&fileInDB).Error
+	assert.NoError(t, err)
+	assert.Equal(t, fileName, fileInDB.Filename)
+	assert.Equal(t, user.ID, fileInDB.UserID)
+	assert.NotEmpty(t, fileInDB.ID)
+
+	expectedFilePath := "uploads/" + user.ID.String() + "/" + fileName
+	_, err = os.Stat(expectedFilePath)
+	assert.NoError(t, err)
+
+	readContent, err := ioutil.ReadFile(expectedFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, dummyContent, readContent)
 }
 
 func Test_UploadFile_TooLarge(t *testing.T) {
@@ -96,36 +142,40 @@ func Test_UploadFile_TooLarge(t *testing.T) {
 	cleanUploadsDir(t)
 	t.Cleanup(func() { cleanUploadsDir(t) })
 
-	r := gin.Default()
-	r.MaxMultipartMemory = 20 << 20 // 20MB
+	user, err := InsertFileUser()
+	assert.NoError(t, err)
+	t.Cleanup(func() { CleanUpTestData(user.ID) })
 
+	jwtSvc := config.NewJWTService()
 	fileController := SetupFileController()
 
-	userID := uuid.New().String()
-	r.POST("/api/upload", func(ctx *gin.Context) {
-		ctx.Set(constants.CTX_KEY_USER_ID, userID)
+	r := gin.Default()
+	r.MaxMultipartMemory = 20 << 20
+	r.Use(middleware.Authenticate(jwtSvc))
+	r.POST("/api/upload", fileController.Create)
 
-		// Pastikan folder userID ada
-		err := os.MkdirAll("uploads/"+userID, os.ModePerm)
-		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create upload dir"})
-			return
-		}
+	token := jwtSvc.GenerateToken(user.ID.String(), user.Username)
 
-		fileController.Create(ctx)
-	})
-
-	largeData := make([]byte, 21<<20) // 21MB
+	largeData := make([]byte, 21<<20)
 	req, err := CreateMultipartRequest("file", "large.txt", largeData)
 	assert.NoError(t, err)
+
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
 
-	_, err = os.Stat("uploads/" + userID + "/large.txt")
-	assert.True(t, os.IsNotExist(err), "File besar seharusnya tidak tersimpan")
+	db := config.SetUpDatabaseConnection()
+	var fileInDB entity.File
+	err = db.Where("filename = ? AND user_id = ?", "large.txt", user.ID).First(&fileInDB).Error
+	assert.Error(t, err)
+	assert.True(t, db.Error != nil && db.Error.Error() == "record not found")
+
+	filePath := "uploads/" + user.ID.String() + "/large.txt"
+	_, err = os.Stat(filePath)
+	assert.True(t, os.IsNotExist(err))
 }
 
 func Test_UploadFile_NoFile(t *testing.T) {
@@ -134,33 +184,81 @@ func Test_UploadFile_NoFile(t *testing.T) {
 	cleanUploadsDir(t)
 	t.Cleanup(func() { cleanUploadsDir(t) })
 
-	r := gin.Default()
+	user, err := InsertFileUser()
+	assert.NoError(t, err)
+	t.Cleanup(func() { CleanUpTestData(user.ID) })
+
+	jwtSvc := config.NewJWTService()
 	fileController := SetupFileController()
 
-	userID := uuid.New().String()
-	r.POST("/api/upload", func(ctx *gin.Context) {
-		ctx.Set(constants.CTX_KEY_USER_ID, userID) 
+	r := gin.Default()
+	r.Use(middleware.Authenticate(jwtSvc))
+	r.POST("/api/upload", fileController.Create)
 
-		err := os.MkdirAll("uploads/"+userID, os.ModePerm)
-		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to create upload dir"})
-			return
-		}
-
-		fileController.Create(ctx)
-	})
+	token := jwtSvc.GenerateToken(user.ID.String(), user.Username)
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	err := writer.Close()
+	err = writer.Close()
 	assert.NoError(t, err)
 
 	req, err := http.NewRequest("POST", "/api/upload", body)
 	assert.NoError(t, err)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
+	req.Header.Set("Authorization", "Bearer "+token)
+
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	db := config.SetUpDatabaseConnection()
+	var fileInDB entity.File
+	err = db.Where("user_id = ?", user.ID).First(&fileInDB).Error
+	assert.Error(t, err)
+	assert.True(t, db.Error != nil && db.Error.Error() == "record not found")
+
+	userUploadDir := "uploads/" + user.ID.String()
+	_, err = os.Stat(userUploadDir)
+	if err == nil {
+		files, err := ioutil.ReadDir(userUploadDir)
+		assert.NoError(t, err)
+		assert.Empty(t, files)
+	} else {
+		assert.True(t, os.IsNotExist(err))
+	}
+}
+
+func Test_UploadFile_NoAuth(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cleanUploadsDir(t)
+	t.Cleanup(func() { cleanUploadsDir(t) })
+
+	jwtSvc := config.NewJWTService()
+	fileController := SetupFileController()
+
+	r := gin.Default()
+	r.Use(middleware.Authenticate(jwtSvc))
+	r.POST("/api/upload", fileController.Create)
+
+	fileName := "unauth_file.txt"
+	dummyContent := []byte("konten file tidak terautentikasi")
+	req, err := CreateMultipartRequest("file", fileName, dummyContent)
+	assert.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	db := config.SetUpDatabaseConnection()
+	var fileInDB entity.File
+	err = db.Where("filename = ?", fileName).First(&fileInDB).Error
+	assert.Error(t, err)
+	assert.True(t, db.Error != nil && db.Error.Error() == "record not found")
+
+	_, err = os.Stat("uploads/" + fileName)
+	assert.True(t, os.IsNotExist(err))
 }
