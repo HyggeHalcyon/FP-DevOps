@@ -107,9 +107,9 @@ func TestUploadFile_Success(t *testing.T) {
 }
 
 func TestUploadFile_TooLarge(t *testing.T) {
-	CleanUpTestData(uuid.Nil) // Bersihkan data sebelum tes
+	CleanUpUploadData(uuid.Nil)
 
-	user, err := InsertFileUser()
+	user, err := InsertUploadUser()
 	assert.NoError(t, err)
 
 	jwtSvc := config.NewJWTService()
@@ -136,7 +136,10 @@ func TestUploadFile_TooLarge(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusRequestEntityTooLarge { // Harapkan 413 jika terlalu besar
+	t.Logf("Actual Status Code: %d", w.Code)
+	t.Logf("Actual Response Body: %s", w.Body.String())
+
+	if w.Code != http.StatusRequestEntityTooLarge {
 		t.Logf("TestUploadFile_TooLarge failed. Expected %d, but got status %d, body: %s", http.StatusRequestEntityTooLarge, w.Code, w.Body.String())
 	}
 
@@ -144,10 +147,19 @@ func TestUploadFile_TooLarge(t *testing.T) {
 
 	var responseBody dto.Response
 	err = json.Unmarshal(w.Body.Bytes(), &responseBody)
-	assert.NoError(t, err)
-	assert.False(t, responseBody.Status) // Harapkan status false untuk kegagalan
-	assert.Equal(t, dto.MESSAGE_FAILED_CREATE_FILE, responseBody.Message) // Asumsi pesan default untuk gagal create
-	assert.Equal(t, dto.ErrFileSizeExceeded.Error(), responseBody.Errors.(string)) // Cek error spesifik
+	if err != nil {
+		t.Logf("JSON Unmarshal Error: %v", err)
+	}
+	assert.NoError(t, err, "Failed to unmarshal response body to dto.Response")
 
-	CleanUpTestData(user.ID)
+	assert.False(t, responseBody.Status, "Expected response status to be false for failed upload")
+	assert.Equal(t, dto.MESSAGE_FAILED_CREATE_FILE, responseBody.Message, "Expected MESSAGE_FAILED_CREATE_FILE")
+
+	if assertedError, ok := responseBody.Errors.(string); ok {
+		assert.Equal(t, dto.ErrFileSizeExceeded.Error(), assertedError, "Expected specific file size exceeded error message")
+	} else {
+		t.Errorf("Expected responseBody.Errors to be a string, but got type %T with value %v", responseBody.Errors, responseBody.Errors)
+	}
+
+	CleanUpUploadData(user.ID)
 }
