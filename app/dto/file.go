@@ -28,7 +28,7 @@ type (
 	Response struct {
 		Status  bool        `json:"status"`
 		Message string      `json:"message"`
-		Errors  interface{} `json:"errors,omitempty"` 
+		Errors  interface{} `json:"error,omitempty"` 
 		Data    interface{} `json:"data,omitempty"`
 		Meta    interface{} `json:"meta,omitempty"`
 	}
