@@ -24,6 +24,15 @@ var (
 )
 
 type (
+
+	Response struct {
+		Status  bool        `json:"status"`
+		Message string      `json:"message"`
+		Errors  interface{} `json:"errors,omitempty"` 
+		Data    interface{} `json:"data,omitempty"`
+		Meta    interface{} `json:"meta,omitempty"`
+	}
+
 	CreateFileRequest struct {
 		File *multipart.FileHeader `json:"file" form:"file" binding:"required"`
 	}
