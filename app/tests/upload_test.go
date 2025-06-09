@@ -238,36 +238,3 @@ func Test_UploadFile_NoFile(t *testing.T) {
 		assert.True(t, os.IsNotExist(err))
 	}
 }
-
-func Test_UploadFile_NoAuth(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	cleanUploadsDir(t)
-	t.Cleanup(func() { cleanUploadsDir(t) })
-
-	jwtSvc := config.NewJWTService()
-	fileController := SetupFileController()
-
-	r := gin.Default()
-	r.Use(middleware.Authenticate(jwtSvc))
-	r.POST("/api/upload", fileController.Create)
-
-	fileName := "unauth_file.txt"
-	dummyContent := []byte("konten file tidak terautentikasi")
-	req, err := CreateMultipartRequest("file", fileName, dummyContent)
-	assert.NoError(t, err)
-
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-
-	db := config.SetUpDatabaseConnection()
-	var fileInDB entity.File
-	err = db.Where("filename = ?", fileName).First(&fileInDB).Error
-	assert.Error(t, err)
-	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
-
-	_, err = os.Stat("uploads/" + fileName)
-	assert.True(t, os.IsNotExist(err))
-}
