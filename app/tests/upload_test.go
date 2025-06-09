@@ -105,3 +105,49 @@ func TestUploadFile_Success(t *testing.T) {
 	assert.Equal(t, dto.MESSAGE_SUCCESS_CREATE_FILE, responseBody.Message)
 	CleanUpTestData(user.ID)
 }
+
+func TestUploadFile_TooLarge(t *testing.T) {
+	CleanUpTestData(uuid.Nil) // Bersihkan data sebelum tes
+
+	user, err := InsertFileUser()
+	assert.NoError(t, err)
+
+	jwtSvc := config.NewJWTService()
+	fileSvc := service.NewFileService(repository.NewFileRepository(config.SetUpDatabaseConnection()))
+	fc := controller.NewFileController(fileSvc, jwtSvc)
+
+	r := gin.Default()
+	r.MaxMultipartMemory = 25 * constants.MB
+
+	fileGroup := r.Group("/files")
+	fileGroup.Use(middleware.Authenticate(jwtSvc))
+	fileGroup.POST("/upload", fc.Create)
+
+	token := jwtSvc.GenerateToken(user.ID.String(), user.Username)
+
+	const invalidFileSize = 21 * constants.MB // 21 MB
+	fileReader, contentType, err := createDummyFile(invalidFileSize)
+	assert.NoError(t, err)
+
+	req, _ := http.NewRequest("POST", "/files/upload", fileReader)
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge { // Harapkan 413 jika terlalu besar
+		t.Logf("TestUploadFile_TooLarge failed. Expected %d, but got status %d, body: %s", http.StatusRequestEntityTooLarge, w.Code, w.Body.String())
+	}
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code, "Expected 413 Request Entity Too Large for file too big")
+
+	var responseBody dto.Response
+	err = json.Unmarshal(w.Body.Bytes(), &responseBody)
+	assert.NoError(t, err)
+	assert.False(t, responseBody.Status) // Harapkan status false untuk kegagalan
+	assert.Equal(t, dto.MESSAGE_FAILED_CREATE_FILE, responseBody.Message) // Asumsi pesan default untuk gagal create
+	assert.Equal(t, dto.ErrFileSizeExceeded.Error(), responseBody.Errors.(string)) // Cek error spesifik
+
+	CleanUpTestData(user.ID)
+}
