@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"errors"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
@@ -19,7 +20,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
+
+func TestMain(m *testing.M) {
+	os.Setenv("GO_ENV", "test")
+	code := m.Run()
+	os.Unsetenv("GO_ENV")
+	os.Exit(code)
+}
 
 func SetupFileController() controller.FileController {
 	db := config.SetUpDatabaseConnection()
@@ -171,7 +180,7 @@ func Test_UploadFile_TooLarge(t *testing.T) {
 	var fileInDB entity.File
 	err = db.Where("filename = ? AND user_id = ?", "large.txt", user.ID).First(&fileInDB).Error
 	assert.Error(t, err)
-	assert.True(t, db.Error != nil && db.Error.Error() == "record not found")
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 
 	filePath := "uploads/" + user.ID.String() + "/large.txt"
 	_, err = os.Stat(filePath)
@@ -217,7 +226,7 @@ func Test_UploadFile_NoFile(t *testing.T) {
 	var fileInDB entity.File
 	err = db.Where("user_id = ?", user.ID).First(&fileInDB).Error
 	assert.Error(t, err)
-	assert.True(t, db.Error != nil && db.Error.Error() == "record not found")
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 
 	userUploadDir := "uploads/" + user.ID.String()
 	_, err = os.Stat(userUploadDir)
@@ -257,7 +266,7 @@ func Test_UploadFile_NoAuth(t *testing.T) {
 	var fileInDB entity.File
 	err = db.Where("filename = ?", fileName).First(&fileInDB).Error
 	assert.Error(t, err)
-	assert.True(t, db.Error != nil && db.Error.Error() == "record not found")
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 
 	_, err = os.Stat("uploads/" + fileName)
 	assert.True(t, os.IsNotExist(err))
