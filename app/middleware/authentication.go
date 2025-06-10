@@ -87,7 +87,6 @@ func AuthenticateIfExists(jwtService config.JWTService) gin.HandlerFunc {
 			}
 		}
 
-		ctx.Set(constants.CTX_KEY_TOKEN, authHeader)
 		ctx.Set(constants.CTX_KEY_USER_ID, userID)
 		ctx.Set(constants.CTX_KEY_ROLE_NAME, userRole)
 		ctx.Next()
