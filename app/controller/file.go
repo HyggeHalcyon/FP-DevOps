@@ -95,8 +95,14 @@ func (c *fileController) DeleteByID(ctx *gin.Context) {
 
 	if err := c.fileService.Delete(ctx.Request.Context(), ctx.GetString(constants.CTX_KEY_USER_ID), id); err != nil {
 		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_DELETE_FILE, err.Error(), nil)
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, response)
-		return
+		if err == dto.ErrUnauthorizedFileAccess {
+            ctx.AbortWithStatusJSON(http.StatusForbidden, response) 
+            return
+        }
+        if err == dto.ErrFileNotFound {
+            ctx.AbortWithStatusJSON(http.StatusNotFound, response)
+            return
+        }
 	}
 
 	response := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_DELETE_FILE, nil)
