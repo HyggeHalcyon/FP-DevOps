@@ -34,14 +34,31 @@ func NewFileController(fs service.FileService, jwt config.JWTService) FileContro
 }
 
 func (c *fileController) Create(ctx *gin.Context) {
-	var req dto.CreateFileRequest
-	if err := ctx.ShouldBind(&req); err != nil {
+	fileHeader, err := ctx.FormFile("file")
+	if err != nil {
 		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_GET_DATA_FROM_BODY, err.Error(), nil)
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, response)
 		return
 	}
 
-	res, err := c.fileService.Create(ctx.Request.Context(), ctx.GetString(constants.CTX_KEY_USER_ID), req)
+	if fileHeader.Size > int64(20)*constants.MB {
+		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_CREATE_FILE, dto.ErrFileSizeExceeded.Error(), nil)
+		ctx.AbortWithStatusJSON(http.StatusRequestEntityTooLarge, response)
+		return
+	}
+
+	req := dto.CreateFileRequest{
+		File: fileHeader,
+	}
+
+	userID := ctx.GetString(constants.CTX_KEY_USER_ID)
+	if userID == "" {
+		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_CREATE_FILE, "User ID not found in context", nil)
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, response)
+		return
+	}
+
+	res, err := c.fileService.Create(ctx.Request.Context(), userID, req)
 	if err != nil {
 		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_CREATE_FILE, err.Error(), nil)
 		ctx.AbortWithStatusJSON(http.StatusInternalServerError, response)
@@ -78,8 +95,14 @@ func (c *fileController) DeleteByID(ctx *gin.Context) {
 
 	if err := c.fileService.Delete(ctx.Request.Context(), ctx.GetString(constants.CTX_KEY_USER_ID), id); err != nil {
 		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_DELETE_FILE, err.Error(), nil)
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, response)
-		return
+		if err == dto.ErrUnauthorizedFileAccess {
+            ctx.AbortWithStatusJSON(http.StatusForbidden, response) 
+            return
+        }
+        if err == dto.ErrFileNotFound {
+            ctx.AbortWithStatusJSON(http.StatusNotFound, response)
+            return
+        }
 	}
 
 	response := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_DELETE_FILE, nil)
