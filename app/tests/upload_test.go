@@ -55,16 +55,16 @@ func createDummyFile(size int64) (io.Reader, string, error) {
 	return body, writer.FormDataContentType(), nil
 }
 
-func CleanUpUploadData(userID uuid.UUID) {
+func CleanUploadData(userID uuid.UUID) {
 	db := config.SetUpDatabaseConnection()
 	db.Exec("DELETE FROM files")
 	db.Exec("DELETE FROM users WHERE id = ?", userID)
 }
 
 func TestUploadFile_Success(t *testing.T) {
-	CleanUpTestData(uuid.Nil)
+	CleanUploadData(uuid.Nil)
 
-	user, err := InsertFileUser()
+	user, err := InsertUploadUser()
 	assert.NoError(t, err)
 
 	jwtSvc := config.NewJWTService()
@@ -102,11 +102,11 @@ func TestUploadFile_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, responseBody.Status)
 	assert.Equal(t, dto.MESSAGE_SUCCESS_CREATE_FILE, responseBody.Message)
-	CleanUpTestData(user.ID)
+	CleanUploadData(user.ID)
 }
 
 func TestUploadFile_TooLarge(t *testing.T) {
-	CleanUpUploadData(uuid.Nil)
+	CleanUploadData(uuid.Nil)
 
 	user, err := InsertUploadUser()
 	assert.NoError(t, err)
@@ -160,5 +160,5 @@ func TestUploadFile_TooLarge(t *testing.T) {
 		t.Errorf("Expected responseBody.Errors to be a string, but got type %T with value %v", responseBody.Errors, responseBody.Errors)
 	}
 
-	CleanUpUploadData(user.ID)
+	CleanUploadData(user.ID)
 }
