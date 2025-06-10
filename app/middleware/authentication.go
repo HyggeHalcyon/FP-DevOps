@@ -80,15 +80,8 @@ func AuthenticateIfExists(jwtService config.JWTService) gin.HandlerFunc {
 				ctx.SetCookie("jwt", "", -1, "/", "", false, true)
 				return
 			}
-		} else {
-			ctx.HTML(http.StatusBadRequest, "privateError.tmpl", gin.H{
-				"title":   "Unauthorized Access",
-				"message": "You do not have permission to access this file.",
-			})
-			return
 		}
 
-		ctx.Set(constants.CTX_KEY_TOKEN, authHeader)
 		ctx.Set(constants.CTX_KEY_USER_ID, userID)
 		ctx.Set(constants.CTX_KEY_ROLE_NAME, userRole)
 		ctx.Next()

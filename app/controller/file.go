@@ -65,12 +65,20 @@ func (c *fileController) UpdateByID(ctx *gin.Context) {
 	res, err := c.fileService.Update(ctx.Request.Context(), ctx.GetString(constants.CTX_KEY_USER_ID), id, req)
 	if err != nil {
 		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_UPDATE_FILE, err.Error(), nil)
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, response)
+		if err == dto.ErrUnauthorizedFileAccess {
+			ctx.AbortWithStatusJSON(http.StatusForbidden, response)
+			return
+		} else if err == dto.ErrFileNotFound {
+			ctx.AbortWithStatusJSON(http.StatusNotFound, response)
+			return
+		} else {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, response)
+		}
 		return
 	}
 
 	response := utils.BuildResponseSuccess(dto.MESSAGE_SUCCESS_UPDATE_FILE, res)
-	ctx.JSON(http.StatusCreated, response)
+	ctx.JSON(http.StatusOK, response)
 }
 
 func (c *fileController) DeleteByID(ctx *gin.Context) {
@@ -78,7 +86,13 @@ func (c *fileController) DeleteByID(ctx *gin.Context) {
 
 	if err := c.fileService.Delete(ctx.Request.Context(), ctx.GetString(constants.CTX_KEY_USER_ID), id); err != nil {
 		response := utils.BuildResponseFailed(dto.MESSAGE_FAILED_DELETE_FILE, err.Error(), nil)
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, response)
+		if err == dto.ErrUnauthorizedFileAccess {
+			ctx.AbortWithStatusJSON(http.StatusForbidden, response)
+		} else if err == dto.ErrFileNotFound {
+			ctx.AbortWithStatusJSON(http.StatusNotFound, response)
+		} else {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, response)
+		}
 		return
 	}
 
