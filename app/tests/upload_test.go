@@ -23,13 +23,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Insert a single test user and return it
 func InsertUploadUser() (entity.User, error) {
 	db := config.SetUpDatabaseConnection()
 	user := entity.User{
 		ID:       uuid.New(),
 		Username: "Rani",
-		Password: "password123", // adjust if you hash passwords in your model
+		Password: "password123",
 	}
 	if err := db.Create(&user).Error; err != nil {
 		return entity.User{}, err
@@ -63,7 +62,7 @@ func CleanUpUploadData(userID uuid.UUID) {
 }
 
 func TestUploadFile_Success(t *testing.T) {
-	CleanUpTestData(uuid.Nil) // Bersihkan data sebelum tes untuk isolasi
+	CleanUpTestData(uuid.Nil)
 
 	user, err := InsertFileUser()
 	assert.NoError(t, err)
@@ -73,32 +72,32 @@ func TestUploadFile_Success(t *testing.T) {
 	fc := controller.NewFileController(fileSvc, jwtSvc)
 
 	r := gin.Default()
-	r.MaxMultipartMemory = 25 * constants.MB // Max 25MB for Gin's parsing, so our 20MB limit works
+	r.MaxMultipartMemory = 25 * constants.MB
 
 	fileGroup := r.Group("/files")
-	fileGroup.Use(middleware.Authenticate(jwtSvc)) // Terapkan middleware autentikasi
+	fileGroup.Use(middleware.Authenticate(jwtSvc))
 	fileGroup.POST("/upload", fc.Create)
 
 	token := jwtSvc.GenerateToken(user.ID.String(), user.Username)
 
-	const validFileSize = 10 * constants.MB // 10 MB
+	const validFileSize = 10 * constants.MB
 	fileReader, contentType, err := createDummyFile(validFileSize)
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest("POST", "/files/upload", fileReader)
-	req.Header.Set("Content-Type", contentType)      // Set header Content-Type untuk multipart form
-	req.Header.Set("Authorization", "Bearer "+token) // Sertakan token autentikasi
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Authorization", "Bearer "+token)
 
-	w := httptest.NewRecorder() // Perekam respons HTTP
-	r.ServeHTTP(w, req)         // Layani permintaan ke router
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusCreated { // Harapkan 201 Created jika upload sukses
+	if w.Code != http.StatusCreated {
 		t.Logf("TestUploadFile_Success failed. Got status %d, body: %s", w.Code, w.Body.String())
 	}
 
 	assert.Equal(t, http.StatusCreated, w.Code, "Expected 201 Created for successful upload")
 
-	var responseBody dto.Response // Asumsi Anda menggunakan struktur Response dari utils.BuildResponseSuccess
+	var responseBody dto.Response
 	err = json.Unmarshal(w.Body.Bytes(), &responseBody)
 	assert.NoError(t, err)
 	assert.True(t, responseBody.Status)
@@ -125,7 +124,7 @@ func TestUploadFile_TooLarge(t *testing.T) {
 
 	token := jwtSvc.GenerateToken(user.ID.String(), user.Username)
 
-	const invalidFileSize = 21 * constants.MB // 21 MB
+	const invalidFileSize = 21 * constants.MB
 	fileReader, contentType, err := createDummyFile(invalidFileSize)
 	assert.NoError(t, err)
 
