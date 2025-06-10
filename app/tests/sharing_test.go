@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath" // Import path/filepath
 	"testing"
 
 	"FP-DevOps/config"
@@ -27,7 +28,6 @@ import (
 
 // =============================================================================
 // Variabel Global untuk Lingkungan Tes
-// Definisi ini memungkinkan semua fungsi tes dan helper untuk mengaksesnya.
 // =============================================================================
 var (
 	dbTest             *gorm.DB
@@ -42,7 +42,6 @@ var (
 
 // =============================================================================
 // Setup dan Teardown Lingkungan Tes
-// Fungsi ini dijalankan sebelum dan sesudah semua tes dalam paket ini.
 // =============================================================================
 
 // TestMain adalah fungsi khusus yang dijalankan sebelum dan sesudah semua tes dalam paket.
@@ -62,15 +61,30 @@ func TestMain(m *testing.M) {
 
 // SetupTestEnvironment menginisialisasi semua komponen yang diperlukan untuk tes.
 func SetupTestEnvironment() {
+	// Atur Gin ke mode tes untuk menonaktifkan log normal
 	gin.SetMode(gin.TestMode)
 
+	// --- PERBAIKAN PENTING UNTUK MENGATASI "insufficient arguments" ---
+	// Set variabel lingkungan untuk database test secara eksplisit.
+	// Ini memastikan konfigurasi database yang benar saat menjalankan tes,
+	// terlepas dari keberadaan file .env atau pengaturan environment di luar.
+	os.Setenv("ENV", "test") // Set ENV ke "test" agar godotenv tidak mencari .env di jalur yang salah
+	os.Setenv("DB_USER", "postgres") // Ganti dengan username database test Anda
+	os.Setenv("DB_PASS", "123")      // Ganti dengan password database test Anda
+	os.Setenv("DB_HOST", "localhost")
+	os.Setenv("DB_NAME", "fp_devops_test") // << PENTING: Gunakan NAMA DATABASE YANG BERBEDA UNTUK TEST!
+	os.Setenv("DB_PORT", "5432")
+
+	// Setup koneksi database
 	dbTest = config.SetUpDatabaseConnection()
 
+	// Migrasi otomatis skema database untuk entitas yang relevan
 	err := dbTest.AutoMigrate(&entity.User{}, &entity.File{})
 	if err != nil {
-		panic(fmt.Sprintf("Failed to auto migrate: %v", err))
+		panic(fmt.Sprintf("Failed to auto migrate database for tests: %v", err))
 	}
 
+	// Inisialisasi service dan repository
 	jwtServiceTest = config.NewJWTService()
 	userRepoTest = repository.NewUserRepository(dbTest)
 	fileRepoTest = repository.NewFileRepository(dbTest)
@@ -78,9 +92,11 @@ func SetupTestEnvironment() {
 	fileServiceTest = service.NewFileService(fileRepoTest)
 	fileControllerTest = controller.NewFileController(fileServiceTest, jwtServiceTest)
 
+	// Inisialisasi router Gin dan terapkan middleware umum
 	routerTest = gin.Default()
 	routerTest.Use(middleware.CORSMiddleware())
 
+	// Definisikan semua rute API yang mungkin diuji di sini, SEKALI SAJA.
 	userRoutes := routerTest.Group("/api/user")
 	{
 		userRoutes.POST("/register", controller.NewUserController(userServiceTest, jwtServiceTest).Register)
@@ -98,8 +114,7 @@ func SetupTestEnvironment() {
 
 // TearDownTestEnvironment membersihkan sumber daya setelah semua tes selesai.
 func TearDownTestEnvironment() {
-	// Jangan hapus database production
-	// Hanya close koneksi jika perlu
+	// Tutup koneksi database
 	sqlDB, err := dbTest.DB()
 	if err != nil {
 		log.Printf("Failed to get SQL DB: %v", err)
@@ -108,14 +123,28 @@ func TearDownTestEnvironment() {
 		sqlDB.Close()
 	}
 
-	// Kalau tidak yakin, HAPUS bagian yang menghapus folder uploads!
-}
+	// Hapus semua tabel di database test untuk memastikan database bersih untuk eksekusi berikutnya.
+	// PENTING: Ini hanya aman dilakukan pada database TEST!
+	if err := dbTest.Migrator().DropTable(&entity.File{}, &entity.User{}); err != nil {
+		log.Printf("Warning: Failed to drop tables during teardown: %v", err)
+	}
 
+	// Bersihkan direktori upload
+	// Asumsi direktori 'uploads' berada satu level di atas direktori 'tests'
+	uploadDir := filepath.Join("..", "uploads")
+	if _, err := os.Stat(uploadDir); !os.IsNotExist(err) {
+		if err := os.RemoveAll(uploadDir); err != nil {
+			fmt.Printf("Warning: Could not clean up upload directory %s: %v\n", uploadDir, err)
+		}
+	}
+	// Buat ulang direktori uploads agar tidak mengganggu test berikutnya atau aplikasi utama
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		fmt.Printf("Warning: Could not recreate upload directory %s: %v\n", uploadDir, err)
+	}
+}
 
 // =============================================================================
 // Helper Functions untuk Tes
-// Fungsi-fungsi pembantu ini mempermudah penulisan tes dengan mengotomatiskan
-// tugas-tugas umum seperti membuat pengguna atau mengunggah file.
 // =============================================================================
 
 // createUserAndGetToken membuat pengguna baru di database tes dan mengembalikan token JWT mereka.
@@ -129,28 +158,15 @@ func createUserAndGetToken(username, password string) (entity.User, string, erro
 	if err != nil {
 		return entity.User{}, "", err
 	}
-	// Generate token dengan user ID dan role "user"
 	token := jwtServiceTest.GenerateToken(createdUser.ID.String(), "user")
 	return createdUser, token, nil
 }
 
 // uploadTestFile mengunggah file dummy ke aplikasi tes dan mengembalikan detail file yang diunggah.
 func uploadTestFile(t *testing.T, token string, userID uuid.UUID, filename, content string) (entity.File, error) {
-	// Router untuk endpoint POST /api/file.
-	// Di sini kita mendefinisikan ulang router.POST karena kita tidak ingin menggunakan middleware global
-	// di fungsi helper ini agar lebih fleksibel. Namun, karena ini adalah helper untuk test,
-	// kita perlu memastikan `c.Set("user_id", ...)` dilakukan agar controller berjalan.
-	// Alternatif yang lebih baik adalah menggunakan middleware.Authenticate di rute ini juga,
-	// seperti yang sudah dilakukan di SetupTestEnvironment.
-	// Saya akan tetap menggunakan pendekatan ini agar sesuai dengan kode asli Anda,
-	// tapi perlu diingat bahwa ini adalah cara "manual" yang bisa diganti.
-	// Jika rute POST /api/file sudah didefinisikan di SetupTestEnvironment dengan middleware Authenticate,
-	// Anda bisa menghapus blok routerTest.POST di helper ini.
-	// Untuk saat ini, saya asumsikan rute ini harus diinisialisasi lagi di helper ini.
-	// *** CATATAN PENTING: BARIS DI BAWAH INI BISA DIHAPUS JIKA rute `fileRoutes.POST` di `SetupTestEnvironment` sudah cukup.
-	// *** Jika dihapus, Anda harus memastikan `routerTest` diinisialisasi sekali saja dengan semua rutenya.
-	routerTest.POST("/api/file", middleware.Authenticate(jwtServiceTest), fileControllerTest.Create)
-	// *** Akhir catatan penting.
+	// Karena rute POST /api/file sudah didefinisikan secara global di SetupTestEnvironment(),
+	// baris di bawah ini TIDAK DIPERLUKAN lagi:
+	// routerTest.POST("/api/file", middleware.Authenticate(jwtServiceTest), fileControllerTest.Create)
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
@@ -182,20 +198,12 @@ func uploadTestFile(t *testing.T, token string, userID uuid.UUID, filename, cont
 	return response.Data, nil
 }
 
-
 // =============================================================================
 // Tes Fungsional untuk Fitur Berbagi File
-// Bagian ini berisi kasus uji untuk fitur berbagi file (public/private access).
 // =============================================================================
 
 // Test_FileSharing_TogglePublic_OK: Menguji skenario sukses mengubah status shareable file
 func Test_FileSharing_TogglePublic_OK(t *testing.T) {
-	// Pastikan lingkungan tes siap sebelum menjalankan tes ini.
-	// Tidak perlu memanggil SetupTestEnvironment di setiap fungsi tes individu
-	// jika sudah ada TestMain yang mengelola Setup dan TearDown.
-	// Namun, jika Anda menjalankan tes individu (go test -run <nama_test>),
-	// Anda mungkin ingin tetap memanggilnya atau menggunakan suite.
-	// Untuk saat ini, saya akan tetap memasukkannya agar fleksibel.
 	SetupTestEnvironment()
 	defer TearDownTestEnvironment()
 
@@ -210,10 +218,8 @@ func Test_FileSharing_TogglePublic_OK(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, uploadedFile)
 
-	// Pastikan rute PATCH untuk file sudah terdaftar dengan middleware autentikasi
-	// Ini sudah dilakukan di SetupTestEnvironment(), jadi baris ini bisa dihilangkan
-	// jika SetupTestEnvironment() selalu dipanggil sebelum tes.
-	// Namun, untuk kejelasan bahwa rute ini diuji, bisa juga dibiarkan.
+	// Rute PATCH untuk file sudah terdaftar di SetupTestEnvironment(), jadi tidak perlu didaftarkan ulang.
+	// Baris berikut DIHAPUS:
 	// routerTest.PATCH("/api/file/:id", middleware.Authenticate(jwtServiceTest), fileControllerTest.UpdateByID)
 
 	// 3. Ubah status file menjadi PUBLIC
@@ -281,9 +287,7 @@ func Test_FileSharing_AccessPublicFile_OK(t *testing.T) {
 	assert.NotNil(t, uploadedFile)
 
 	// 2. Ubah file menjadi PUBLIC
-	// Pastikan rute PATCH untuk file sudah terdaftar dengan middleware autentikasi
-	// (sudah dilakukan di SetupTestEnvironment(), jadi ini bisa dihilangkan)
-	// routerTest.PATCH("/api/file/:id", middleware.Authenticate(jwtServiceTest), fileControllerTest.UpdateByID)
+	// Rute PATCH sudah terdaftar di SetupTestEnvironment().
 	payloadPublic := struct {
 		Shareable bool `json:"shareable"`
 	}{Shareable: true}
@@ -297,8 +301,7 @@ func Test_FileSharing_AccessPublicFile_OK(t *testing.T) {
 	assert.Equal(t, http.StatusOK, wPublic.Code) // Verifikasi perubahan status sukses
 
 	// 3. Coba akses file publik tanpa autentikasi (menggunakan /api/file/:id?view=true)
-	// Rute GET untuk file sudah terdaftar di SetupTestEnvironment().
-	// Controller `GetFileByID` seharusnya menangani logika `?view=true` untuk file publik.
+	// Rute GET sudah terdaftar di SetupTestEnvironment().
 	reqAccess, err := http.NewRequest("GET", fmt.Sprintf("/api/file/%s?view=true", uploadedFile.ID), nil) // Tanpa header Auth
 	assert.NoError(t, err)
 	wAccess := httptest.NewRecorder()
@@ -321,8 +324,7 @@ func Test_FileSharing_AccessPrivateFile_Unauthorized(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 2. Verifikasi file ini privat (shareable = false) secara eksplisit jika diperlukan
-	// (sudah dilakukan di SetupTestEnvironment(), jadi ini bisa dihilangkan)
-	// routerTest.PATCH("/api/file/:id", middleware.Authenticate(jwtServiceTest), fileControllerTest.UpdateByID)
+	// Rute PATCH sudah terdaftar di SetupTestEnvironment().
 	payloadPrivateExplicit := struct {
 		Shareable bool `json:"shareable"`
 	}{Shareable: false}
@@ -343,9 +345,7 @@ func Test_FileSharing_AccessPrivateFile_Unauthorized(t *testing.T) {
 	assert.False(t, *respPrivateExplicit.Data.Shareable) // Pastikan sudah privat
 
 	// 3. Coba akses file private tanpa autentikasi (anonim)
-	// Rute GET untuk file sudah terdaftar di SetupTestEnvironment().
-	// Karena ini file privat dan tidak ada token, akses seharusnya ditolak.
-	routerTest.GET("/api/file/:id", fileControllerTest.GetFileByID) // Gunakan handler yang sama
+	// Rute GET sudah terdaftar di SetupTestEnvironment().
 	reqAccess, err := http.NewRequest("GET", fmt.Sprintf("/api/file/%s?view=true", uploadedFile.ID), nil) // Tanpa header Auth
 	assert.NoError(t, err)
 	wAccess := httptest.NewRecorder()
@@ -368,8 +368,7 @@ func Test_FileSharing_AccessPrivateFile_NotOwner(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 2. Pastikan file ini privat
-	// (sudah dilakukan di SetupTestEnvironment(), jadi ini bisa dihilangkan)
-	// routerTest.PATCH("/api/file/:id", middleware.Authenticate(jwtServiceTest), fileControllerTest.UpdateByID)
+	// Rute PATCH sudah terdaftar di SetupTestEnvironment().
 	payloadPrivateExplicit := struct {
 		Shareable bool `json:"shareable"`
 	}{Shareable: false}
@@ -394,9 +393,8 @@ func Test_FileSharing_AccessPrivateFile_NotOwner(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 4. User B mencoba mengakses file milik User A (yang privat)
-	// Rute GET untuk file sudah terdaftar dengan middleware autentikasi di SetupTestEnvironment().
-	routerTest.GET("/api/file/:id", middleware.Authenticate(jwtServiceTest), fileControllerTest.GetFileByID) // Middleware akan memeriksa token User B
-	reqAccess, err := http.NewRequest("GET", fmt.Sprintf("/api/file/%s", uploadedFile.ID), nil)             // Tanpa ?view=true, karena ada token
+	// Rute GET sudah terdaftar di SetupTestEnvironment().
+	reqAccess, err := http.NewRequest("GET", fmt.Sprintf("/api/file/%s", uploadedFile.ID), nil) // Tanpa ?view=true, karena ada token
 	assert.NoError(t, err)
 	reqAccess.Header.Set("Authorization", "Bearer "+tokenB) // Menggunakan token User B
 	wAccess := httptest.NewRecorder()
