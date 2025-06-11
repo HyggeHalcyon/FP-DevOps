@@ -1,6 +1,8 @@
 # 🚀 Cloud File Manager
 
-A secure, full-featured web application for cloud file management with Azure integration. Upload, manage, and share your files with advanced privacy controls and a modern, responsive interface.
+![alt text](Dashboard.png)
+
+Our project consists of developing a web application for a cloud file manager where you can create an account, upload your files to our cloud that is integrated with Azure, rename, delete, and even share them with the public if you want! Don't worry; when you set a file to private, only you can see it.
 
 These are the short documentation what's inside of our project if you want to check out more detailed (with Bahasa Indonesia), kindly check this link!
 
@@ -8,18 +10,13 @@ These are the short documentation what's inside of our project if you want to ch
 
 ## 🌟 Features
 ### Core Functionality
-- **Secure Authentication** - JWT-based user authentication with bcrypt password hashing
 - **File Upload & Management** - Upload files up to 20MB with drag-and-drop interface
 - **File Operations** - Rename, delete, and download files with ease
+
+   - **Private by Default** - All files are private unless explicitly made public
 - **Privacy Controls** - Toggle files between private and public sharing
 - **File Sharing** - Generate shareable links for public files
-- **Responsive Dashboard** - Modern, mobile-friendly interface
 - **File Search & Pagination** - Easy navigation through your files
-
-### Security Features
-- **Private by Default** - All files are private unless explicitly made public
-- **Secure File Storage** - Files stored with UUID-based names for security
-- **Content Type Detection** - Automatic MIME (Multipurpose Internet Mail Extensions) type detection for uploaded files
 
 ## 🏗️ Technology Stack
 
@@ -27,22 +24,19 @@ These are the short documentation what's inside of our project if you want to ch
 - **Go** (Golang) - Applicable for a simple web application
 - **Gin** - Backend framework from Go
 - **PostgreSQL** - Primary database for user and file metadata
-- **JWT** - JSON Web Tokens for authentication
-- **bcrypt** - Password hashing for security
 
 ### Frontend
 - **HTML/CSS/JavaScript** 
 
 ### Infrastructure 
 - **Docker** - Containerized application deployment
-- **Docker Compose** - Multi-container orchestration
+   - **Docker Compose** - Multi-container orchestration
 - **Terraform** - Infrastructure as Code for Azure resources
 - **Azure Cloud** - Production hosting platform
 
 ### Development & Testing
 - **Go Modules** - Dependency management
 - **Unit Testing** - Comprehensive test coverage with testify
-- **Environment Variables** - Secure configuration management
 
 ## 🚀 Getting Started
 
@@ -71,27 +65,19 @@ These are the short documentation what's inside of our project if you want to ch
    docker-compose up -d
    ```
 
-4. **Access the application**
-   - Web Interface: http://localhost:8888
-   - API Endpoints: http://localhost:8888/api
-
-### Manual Setup (without Docker)
-
-1. **Install dependencies**
-   ```bash
-   cd app
-   go mod download
-   ```
-
-2. **Set up PostgreSQL database**
-   ```bash
-   # Create database and update .env file
-   ```
-
-3. **Run the application**
+4. **Execute your web application**
    ```bash
    go run main.go
    ```
+   lastly
+   ```
+   ./main.exe
+   ```
+
+4. **Access the application**
+   - Web Interface: http://localhost:8888
+   - API Endpoints: http://localhost:8888/api
+      - or your designated localhost 
 
 ## 📊 API Documentation
 
@@ -122,7 +108,7 @@ These are the short documentation what's inside of our project if you want to ch
 ### 🧪 Stage 1: Continuous Integration (CI)
 
 #### **Test Pipeline** (`test.yml`)
-**When it runs:** Every push to any branch + every pull request
+**When it runs:** Every push to any branch + every pull request.
 
 **What it does:**
 ```yaml
@@ -130,19 +116,13 @@ Workflow Steps:
 1. Checkout code from repository
 2. Set up Go environment (version 1.20)
 3. Start PostgreSQL service for testing
-4. Install Go dependencies
-5. Run database migrations
-6. Execute unit test suite
-7. Generate test coverage report
-8. Upload coverage to code coverage service
+4. Checkout Repository
+5. Install Go dependencies
+6. Run database migrations
+7. Execute unit test suite
+8. Generate test coverage report
+9. Upload coverage to code coverage service
 ```
-
-**Why each step matters:**
-- **Environment Setup**: Ensures consistent Go version across all test runs
-- **PostgreSQL Service**: Creates isolated database for each test run, preventing test interference
-- **Dependency Installation**: Validates that all required packages are available and compatible
-- **Database Migrations**: Tests that schema changes work correctly
-- **Unit Tests**: Validates business logic, API endpoints, and data integrity
 
 **How to run test:**
 ```
@@ -152,26 +132,14 @@ PS D:\git\FP-DevOps\app> go test ./...
 ### 🏗️ Stage 2: Build and Containerization
 
 #### **Build Pipeline** (`build.yml`)
-**When it runs:** After successful tests on `development` and `main` branches
+**When it runs:** After successful tests on `development` and `main` branches.
 
 **Detailed Build Process:**
 ```yaml
 Build Steps:
 1. Compile Go application
-   ├── Cross-compilation for Linux (target environment)
-   ├── Static binary creation (no external dependencies)
-   └── Binary optimization (reduced size)
-
 2. Create Docker image
-   ├── Multi-stage build (reduces final image size)
-   ├── Security scanning of base image
-   ├── Non-root user creation (security best practice)
-   └── Health check endpoint configuration
-
 3. Push to registry
-   ├── Tag with git commit SHA
-   ├── Tag with branch name
-   └── Push to Azure Container Registry
 ```
 
 **How to run build process:**
@@ -188,7 +156,7 @@ PS D:\git\FP-DevOps\app> go build main.go
 #### **Deployment Pipeline** (`deploy.yml`)
 **When it runs:** After successful build, triggered by branch-specific rules
 
-**Environment Strategy:**
+**Branches Environment:**
 ```
 Branch Strategy:
 ├── feature/* branches → No automatic deployment
@@ -198,10 +166,8 @@ Branch Strategy:
 ```
 
 **Deployment Process Deep Dive:**
-
-##### **Development Environment Deployment**
 ```yaml
-Development Deployment Steps:
+Deployment Steps:
 1. SSH Connection Setup
    ├── Establish secure connection to PSOVM-Dev
    ├── Verify VM health and resources
@@ -225,34 +191,6 @@ Development Deployment Steps:
    ├── File upload functionality tests
    └── User authentication tests
 ```
-
-##### **Production Environment Deployment**
-```yaml
-Production Deployment (Enhanced):
-1. Pre-Deployment Checks
-   ├── Database backup creation
-   ├── Current application health verification
-   ├── Resource availability check
-   └── Manual approval gate
-
-2. Blue-Green Deployment Strategy
-   ├── Deploy to "green" environment
-   ├── Run comprehensive tests on green
-   ├── Switch load balancer to green
-   └── Keep blue as rollback option
-
-3. Post-Deployment Monitoring
-   ├── Real-time error rate monitoring
-   ├── Performance metrics collection
-   ├── User session validation
-   └── Automated rollback if issues detected
-```
-
-**Why there are two stagings:**
-- **Zero Downtime**: Users never experience service interruption
-- **Risk Mitigation**: Blue-green strategy allows instant rollback
-- **Quality Assurance**: Multiple verification steps catch issues early
-- **Monitoring**: Real-time visibility into deployment success
 
 #### Test Environment Setup
 ```bash
@@ -305,16 +243,16 @@ FP-DevOps/
 ## 🔧 Configuration
 
 ### Environment Variables
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `ENV` | Environment (development/production) | Yes |
-| `PORT` | Application port | No (default: 8080) |
-| `DB_HOST` | PostgreSQL host | Yes |
-| `DB_USER` | Database username | Yes |
-| `DB_PASS` | Database password | Yes |
-| `DB_NAME` | Database name | Yes |
-| `DB_PORT` | Database port | Yes |
-| `JWT_SECRET` | JWT signing secret | Yes |
+| Variable | Description | 
+|----------|-------------|
+| `ENV` | Environment (development/production) | 
+| `PORT` | Application port |
+| `DB_HOST` | PostgreSQL host |
+| `DB_USER` | Database username |
+| `DB_PASS` | Database password |
+| `DB_NAME` | Database name |
+| `DB_PORT` | Database port |
+| `JWT_SECRET` | JWT signing secret |
 
 ## 🌐 Live Demo
-Visit our live application: 
+Visit our live application: http://52.185.154.52
