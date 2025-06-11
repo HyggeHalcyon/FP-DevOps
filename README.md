@@ -1,6 +1,6 @@
 # 🚀 Cloud File Manager
 
-![alt text](Dashboard.png)
+![alt text](images/Dashboard.png)
 
 Our project consists of developing a web application for a cloud file manager where you can create an account, upload your files to our cloud that is integrated with Azure, rename, delete, and even share them with the public if you want! Don't worry; when you set a file to private, only you can see it.
 
@@ -101,9 +101,9 @@ These are the short documentation what's inside of our project if you want to ch
 
 ## 🏭 DevOps & CI/CD Pipeline
 ### 🔄 Our CI/CD Architecture
-![alt text](<CICD Diagram PSO Kel. 4 (5).png>)
+![alt text](<images/CICD Diagram PSO Kel. 4 (5).png>)
 
-![alt text](<CICD Diagram PSO Kel. 4 (4).png>)
+![alt text](<images/CICD Diagram PSO Kel. 4 (4).png>)
 
 ### 🧪 Stage 1: Continuous Integration (CI)
 
