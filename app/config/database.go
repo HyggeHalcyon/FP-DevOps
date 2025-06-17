@@ -50,12 +50,3 @@ func SetUpDatabaseConnection() *gorm.DB {
 
 	return db
 }
-
-func CloseDatabaseConnection(db *gorm.DB) {
-	dbSQL, err := db.DB()
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
-	}
-	dbSQL.Close()
-}
