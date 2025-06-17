@@ -1,8 +1,8 @@
 # 🚀 Cloud File Manager
 
-![alt text](images/Dashboard.png)
+![alt text](<images/Welcome Page.png>)
 
-Our project consists of developing a web application for a cloud file manager where you can create an account, upload your files to our cloud that is integrated with Azure, rename, delete, and even share them with the public if you want! Don't worry; when you set a file to private, only you can see it.
+Our project consists of developing a simple file manager web application  where you can create an account, upload your files, rename, delete, and even share them with the public if you want! Don't worry; when you set a file to private, only you can see it.
 
 These are the short documentation what's inside of our project if you want to check out more detailed (with Bahasa Indonesia), kindly check this link!
 
@@ -17,22 +17,46 @@ These are the short documentation what's inside of our project if you want to ch
 - **Privacy Controls** - Toggle files between private and public sharing
 - **File Sharing** - Generate shareable links for public files
 - **File Search & Pagination** - Easy navigation through your files
+### Page Overview
+![alt text](images/Login.png)
+![alt text](images/Register.png)
+![alt text](images/Dashboard.png)
+![alt text](images/Upload.png)
+![alt text](images/unauthorized.png)
 
 ## 🏗️ Technology Stack
 
 ### Backend
-- **Go** (Golang) - Applicable for a simple web application
-- **Gin** - Backend framework from Go
+- **Go** (Golang) - Programming languange
+- **Gin** - Web development framework
 - **PostgreSQL** - Primary database for user and file metadata
+- **Docker** - Containerized application deployment
+   - **Docker Compose** - Multi-container orchestration
 
 ### Frontend
 - **HTML/CSS/JavaScript** 
 
-### Infrastructure 
-- **Docker** - Containerized application deployment
-   - **Docker Compose** - Multi-container orchestration
-- **Terraform** - Infrastructure as Code for Azure resources
-- **Azure Cloud** - Production hosting platform
+### Terraform Infrastructure
+- Infrastructure as Code for Azure resources
+- How to use the terraform definition:
+      1. Copy the *config.tfvars.json.example* file as *config.tfvars.json* 
+      2. After copying the file, you can define the resource group, username and password as you like in the json.
+      3. You can run the terraform on CLI by:
+   ```
+   terraform plan -var-file="config.tfvars.json"
+   ```
+   then
+   ```
+   terraform apply -var-file="config.tfvars.json"
+   ```
+
+   #### For destroying the terraform:
+   ```
+   terraform destroy -var-file="config.tfvars.json"
+   ```
+   **Note:** All resources will be provisioned on Azure Cloud. 
+### CI/CD
+- **Github Actions** - Integrated with Github
 
 ### Development & Testing
 - **Go Modules** - Dependency management
@@ -41,7 +65,7 @@ These are the short documentation what's inside of our project if you want to ch
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Go 1.20 or higher
+- Go 1.24.4 
 - Docker and Docker Compose
 - PostgreSQL 
 
@@ -60,13 +84,15 @@ These are the short documentation what's inside of our project if you want to ch
    # Edit .env with your database and JWT configuration
    ```
 
-3. **Run with Docker Compose**
+3. **Run the application**
    ```bash
+   #using docker compose
    docker-compose up -d
    ```
+   or
 
-4. **Execute your web application**
    ```bash
+   #using go
    go run main.go
    ```
    lastly
@@ -99,10 +125,12 @@ These are the short documentation what's inside of our project if you want to ch
 - `/register` - User registration page
 - `/dashboard` - Main file management interface
 
-## 🏭 DevOps & CI/CD Pipeline
-### 🔄 Our CI/CD Architecture
-![alt text](<images/CICD Diagram PSO Kel. 4 (5).png>)
+More details about API are available in the [Wiki Page](https://github.com/HyggeHalcyon/FP-DevOps/wiki/API-Docs)
 
+## 🏭 DevOps Pipeline Visualization
+### 🔄 Our  Architecture
+![alt text](<images/CICD Diagram PSO Kel. 4 (5).png>)
+### 🔄 Our CI/CD Pipeline
 ![alt text](<images/CICD Diagram PSO Kel. 4 (4).png>)
 
 ### 🧪 Stage 1: Continuous Integration (CI)
@@ -118,15 +146,12 @@ Workflow Steps:
 3. Start PostgreSQL service for testing
 4. Checkout Repository
 5. Install Go dependencies
-6. Run database migrations
-7. Execute unit test suite
-8. Generate test coverage report
-9. Upload coverage to code coverage service
+6. Execute unit test suite
 ```
 
 **How to run test:**
 ```
-PS D:\git\FP-DevOps\app> go test ./...
+PS D:\git\FP-DevOps\app> go test -v -cover ./...
 ```
 
 ### 🏗️ Stage 2: Build and Containerization
@@ -139,7 +164,7 @@ PS D:\git\FP-DevOps\app> go test ./...
 Build Steps:
 1. Compile Go application
 2. Create Docker image
-3. Push to registry
+3. Push to artifact
 ```
 
 **How to run build process:**
@@ -159,42 +184,39 @@ PS D:\git\FP-DevOps\app> go build main.go
 **Branches Environment:**
 ```
 Branch Strategy:
-├── feature/* branches → No automatic deployment
+├── *feature* branches → No automatic deployment
 ├── development branch → Auto-deploy to Development VM
-├── main branch → Auto-deploy to Production VM (after manual approval)
-└── hotfix/* branches → Auto-deploy to both (emergency fixes)
+├── main branch → Auto-deploy to Production VM (after manual pull request approval)
 ```
 
-**Deployment Process Deep Dive:**
+**Deployment Process:**
 ```yaml
 Deployment Steps:
 1. SSH Connection Setup
-   ├── Establish secure connection to PSOVM-Dev
-   ├── Verify VM health and resources
-   └── Backup current deployment
+   └── Establish secure connection to Azure VM
 
 2. Application Update
-   ├── Pull latest Docker images
-   ├── Update environment variables
-   ├── Run database migrations (if any)
-   └── Update docker-compose.yml
-
-3. Zero-Downtime Deployment
-   ├── Start new containers alongside old ones
-   ├── Health check new containers
-   ├── Switch traffic to new containers
-   └── Remove old containers
-
-4. Post-Deployment Verification
-   ├── API health checks
-   ├── Database connectivity tests
-   ├── File upload functionality tests
-   └── User authentication tests
+   ├── Checkout repository according to branch* (Dev/Prod)
+   ├── Destroy previous deployment
+   └── Update environment variables
 ```
 
-#### Test Environment Setup
+## 🔧 Configuration
+
+### Environment Variables
+| Variable | Description | 
+|----------|-------------|
+| `ENV` | Environment (development/production) | 
+| `PORT` | Application port |
+| `DB_HOST` | PostgreSQL host |
+| `DB_USER` | Database username |
+| `DB_PASS` | Database password |
+| `DB_NAME` | Database name |
+| `DB_PORT` | Database port |
+| `JWT_SECRET` | JWT signing secret |
+
+### Example Environment Setup
 ```bash
-# Test database configuration (automated in CI)
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
@@ -226,8 +248,8 @@ FP-DevOps/
 │   ├── storage/         # File storage directory
 │   ├── docker/          # Docker configuration
 │   │   ├── nginx/       # Nginx proxy configuration
-│   │   └── air/         # Hot reload configuration
-│   ├── docker-compose.yml # Multi-container orchestration
+│   │   └── air/         
+│   ├── docker-compose.yml # Multi-container
 │   └── Dockerfile       # Application container definition
 ├── terraform/           # Infrastructure as Code
 │   ├── providers.tf     # Terraform providers configuration
@@ -236,23 +258,10 @@ FP-DevOps/
 │   ├── network.tf      # Network infrastructure
 │   ├── storage.tf      # Storage accounts
 │   ├── outputs.tf      # Output values
-│   └── config.tfvars.json.example # Configuration template
+│   └── config.tfvars.json.example # Input template
 └── README.md            # Project documentation
 ```
 
-## 🔧 Configuration
-
-### Environment Variables
-| Variable | Description | 
-|----------|-------------|
-| `ENV` | Environment (development/production) | 
-| `PORT` | Application port |
-| `DB_HOST` | PostgreSQL host |
-| `DB_USER` | Database username |
-| `DB_PASS` | Database password |
-| `DB_NAME` | Database name |
-| `DB_PORT` | Database port |
-| `JWT_SECRET` | JWT signing secret |
-
 ## 🌐 Live Demo
-Visit our live application: http://52.185.154.52
+Visit our live application (Development): http://13.78.95.97
+Visit our live application (Production): http://52.185.154.52
