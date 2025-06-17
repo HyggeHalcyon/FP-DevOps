@@ -712,7 +712,7 @@
         html += `
           <div class="file-item">
             <div class="file-info">
-              <strong>${file.filename}</strong>${shareStatus}<br>
+              <strong>${file.filename}</strong><br>
               <small>Size: ${formatFileSize(file.size)} <br>
               Type: ${file.mime_type}</small>
             </div>
@@ -720,7 +720,6 @@
               <button class="download-btn" onclick="downloadFile('${file.id}')">Download</button>
               <button class="rename-btn" onclick="renameFile('${file.id}')">Rename</button>
               <button class="copy-link-btn" onclick="copyShareLink('${file.id}', ${file.shareable})">Copy Link</button>
-              ${shareButton}
               <button class="delete-btn" onclick="deleteFile('${file.id}')">Delete</button>
             </div>
           </div>
